@@ -7,7 +7,7 @@
 all: build
 
 server:
-	wark -v
+	warp -v
 
 build:
 	ahc-link --input-hs Main.hs --bundle --browser

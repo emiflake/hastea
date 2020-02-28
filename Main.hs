@@ -1,36 +1,38 @@
 module Main where
 
 
-import           Prelude        hiding (div, span)
-
 import           Asterius.Types
+import           Control.Monad
 import           Data.Coerce
+import           Prelude        hiding (div, init, span)
 
-
+import           Async
+import           Data.IORef
 import           DOM
 
 
+data Msg
+  = Increment
+  | Decrement
+  deriving Show
 
+type Model = Int
 
--- GENERAL JS FFI
+view :: Int -> Html Msg
+view counter =
+  div []
+    [ span [] [ text (show counter) ]
+    , button [ onClick Increment ] [ text "Increment" ]
+    , button [ onClick Decrement ] [ text "Decrement" ]
+    ]
 
+init :: Model
+init = 42
 
-foreign import javascript "(${1}).toString()" unsafeShowJSVal :: JSVal -> JSString
-
-
-
--- LIB
-
-
-example :: Html a
-example =
-  div [] [ span [] [ text "Hello, world" ]
-         , strong [] [ text "Bold!" ]
-         , a [ attrib "href" "https://google.com" ] [ text "Click me!" ]
-         ]
+update :: Msg -> Model -> Model
+update Increment = succ
+update Decrement = pred
 
 
 main :: IO ()
-main = do
-  print example
-  renderRootNode example
+main = runApp update init view
