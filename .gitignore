@@ -1,0 +1,6 @@
+*.hi
+*.o
+dist
+browser
+node
+*.~undo-tree~
