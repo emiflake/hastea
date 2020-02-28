@@ -15,7 +15,9 @@ server: copy-bins
 copy-bins:
 	cp index.html $(DIST_DIR)
 
-
+clean:
+	find . -name *.hi -exec rm {} \;
+	find . -name *.o -exec rm {} \;
 
 build:
 	ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
