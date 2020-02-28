@@ -1,0 +1,19 @@
+#+TITLE: Hastea web framework
+#+DESCRIPTION: A tasty hasty framework
+
+* Fun with Asterius
+  The Elm Architecture is a wonderful means for creating web apps without worrying about runtime errors, Hastea is a TEA-inspered web framework using those principles ontop of Haskell compilation through Asterius
+* Building
+** Using Docker
+   You can find an asterius docker image on [[https://hub.docker.com/r/terrorjack/asterius][docker hub]]
+   using this, you can run the following command, which will compile the Main.hs to dist
+   #+BEGIN_SRC bash
+   ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
+   #+END_SRC
+** No other methods have been tried, unfortunately
+* TODOs
+** Development
+*** Add `Cmd`
+*** Add diffing on Virtual DOM
+*** Test out different input methods
+*** Benchmark
