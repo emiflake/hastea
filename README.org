@@ -10,10 +10,11 @@
    #+BEGIN_SRC bash
    ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
    #+END_SRC
-** No other methods have been tried, unfortunately
+
+  No other methods have been tried, unfortunately
 * TODOs
 ** Development
-*** Add `Cmd`
-*** Add diffing on Virtual DOM
-*** Test out different input methods
-*** Benchmark
+  - Add `Cmd`
+  - Add diffing on Virtual DOM
+  - Test out different input methods
+  - Benchmark
