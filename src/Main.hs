@@ -1,15 +1,9 @@
 module Main where
 
+import           Prelude     hiding (div, init, span)
 
-import           Asterius.Types
-import           Control.Monad
-import           Data.Coerce
-import           Prelude        hiding (div, init, span)
-
-import           Async
-import           Data.IORef
-import           DOM
-
+import           Hastea.App
+import           Hastea.Html
 
 data Msg
   = Increment

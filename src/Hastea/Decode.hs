@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Decode
+module Hastea.Decode
   ( Decode
   , runDecode
 
