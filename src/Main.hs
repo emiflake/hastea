@@ -3,30 +3,36 @@ module Main where
 import           Prelude     hiding (div, init, span)
 
 import           Hastea.App
+import           Hastea.Cmd  (Cmd)
+import qualified Hastea.Cmd  as Cmd
 import           Hastea.Html
 
+
 data Msg
-  = Increment
-  | Decrement
+  = Change String
   deriving Show
 
-type Model = Int
+type Model = String
 
-view :: Int -> Html Msg
-view counter =
+view :: String -> Html Msg
+view val  =
   div []
-    [ span [] [ text (show counter) ]
-    , button [ onClick Increment ] [ text "Increment" ]
-    , button [ onClick Decrement ] [ text "Decrement" ]
-    ]
+      [ input [ onInput Change, value val ] [ ]
+      , text val
+      , text val
+      , text val
+      , text val
+      , text val
+      , text val
+      , text val
+      ]
+
 
 init :: Model
-init = 42
+init = ""
 
-update :: Msg -> Model -> Model
-update Increment = succ
-update Decrement = pred
-
+update :: Msg -> Model -> (Model, Cmd Msg)
+update (Change c) _ = (c, Cmd.none)
 
 main :: IO ()
 main = runApp update init view

@@ -3,12 +3,19 @@ module Hastea.Html
   ( Html
   , Attribute
 
+  -- * Attributes
   , attrib
   , on
   , node
 
   , className
+  , value
+
+  -- * Events
   , onClick
+  , onInput
+
+  -- * Tags
   , text
   , div
   , span
@@ -19,14 +26,16 @@ module Hastea.Html
   , li
   , ul
   , button
+  , input
   )
   where
 
 import           Prelude                    hiding (div, span)
 
 
-import           Hastea.Decode
-import           Hastea.Internal.VirtualDOM
+import           Hastea.Decode              (Decode)
+import qualified Hastea.Decode              as Decode
+import           Hastea.Internal.VirtualDOM hiding (value)
 
 type Html a = VNode a
 type Attribute a = VAttribute a
@@ -57,6 +66,10 @@ className :: String -> Attribute a
 className = attrib "class"
 
 
+value :: String -> Attribute a
+value = attrib "value"
+
+
 
 -- Events
 
@@ -64,6 +77,9 @@ className = attrib "class"
 onClick :: msg -> Attribute msg
 onClick msg = on "click" (pure msg)
 
+
+onInput :: (String -> msg) -> Attribute msg
+onInput toMsg = on "input" (fmap toMsg $ Decode.field "target" (Decode.field "value" Decode.string))
 
 
 -- Tags
@@ -111,3 +127,7 @@ strong = node "strong"
 
 button :: [Attribute a] -> [Html a] -> Html a
 button = node "button"
+
+
+input :: [Attribute a] -> [Html a] -> Html a
+input = node "input"

@@ -18,6 +18,9 @@ import           Hastea.Decode
 import           Hastea.Internal.Foreign.DOM
 
 
+type Percolate a = a -> IO ()
+
+
 data Attrib
   = Attrib
   { key   :: String
@@ -46,7 +49,7 @@ instance Functor VAttribute where
       listener@VEventListener{eventDecoder} -> listener{eventDecoder = fmap f eventDecoder}
 
 
-applyAttribute :: (a -> IO ()) -> DOMNode -> VAttribute a -> IO ()
+applyAttribute :: Percolate a -> DOMNode -> VAttribute a -> IO ()
 applyAttribute percolate node attribute = case attribute of
   VAttribute attrib                       -> node `setAttrib` attrib
   VEventListener{eventName, eventDecoder} -> addEventListener node eventName cb
@@ -74,7 +77,7 @@ instance Functor VNode where
       VText t -> VText t
 
 
-renderVNode :: (a -> IO ()) -> VNode a -> IO DOMNode
+renderVNode :: Percolate a -> VNode a -> IO DOMNode
 renderVNode percolate VNode{tagName, attributes, children} = do
   el <- createElement tagName
   forM_ attributes $ \attrib -> applyAttribute percolate el attrib
@@ -83,3 +86,14 @@ renderVNode percolate VNode{tagName, attributes, children} = do
     el `appendChild` child
   pure el
 renderVNode _ (VText text) = createTextNode text
+
+
+
+
+
+createEl :: Percolate a -> VNode a -> IO ()
+createEl percolate node =
+  case node of
+    VText t -> createTextNode t
+    VNode{tagName, attributes, children} ->
+      el
