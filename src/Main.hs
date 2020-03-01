@@ -7,6 +7,7 @@ import           Hastea.Cmd  (Cmd)
 import qualified Hastea.Cmd  as Cmd
 import           Hastea.Html
 
+import Data.Char
 
 data Msg
   = Change String
@@ -18,13 +19,9 @@ view :: String -> Html Msg
 view val  =
   div []
       [ input [ onInput Change, value val ] [ ]
-      , text val
-      , text val
-      , text val
-      , text val
-      , text val
-      , text val
-      , text val
+      , p [] [ text val ]
+      , p [] [ text (toUpper <$> val) ]
+      , p [] [ text (toLower <$> val) ]
       ]
 
 

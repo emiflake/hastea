@@ -27,6 +27,7 @@ module Hastea.Html
   , ul
   , button
   , input
+  , p
   )
   where
 

@@ -8,6 +8,11 @@ module Hastea.Decode
   , number
   , list
   , field
+
+
+  , truthy
+  , notNull
+  , isNull
   )
   where
 
@@ -56,6 +61,25 @@ foreign import javascript "(${1}) instanceof Array" ffi_isArray :: JSVal -> Bool
 foreign import javascript "${1} instanceof Object" ffi_isObject :: JSVal -> Bool
 foreign import javascript "${1} in ${2}" ffi_keyIsIn :: JSVal -> JSObject -> Bool
 foreign import javascript "${1}[${2}]" ffi_keyGet :: JSObject -> JSString -> JSVal
+foreign import javascript "(${1}) === null" ffi_isNull :: JSVal -> Bool
+foreign import javascript "!!(${1})" ffi_truthy :: JSVal -> Bool
+
+
+
+-- FFI wrappers
+
+
+notNull :: JSVal -> Bool
+notNull = not . isNull
+
+
+isNull :: JSVal -> Bool
+isNull = ffi_isNull
+
+
+truthy :: JSVal -> Bool
+truthy = ffi_truthy
+
 
 
 -- Primitives

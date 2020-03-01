@@ -9,28 +9,29 @@ import           Data.IORef
 import           Hastea.Cmd
 import           Hastea.Html
 import           Hastea.Internal.Foreign.DOM
+import           qualified Hastea.Internal.Foreign.Effects as Effects
 import           Hastea.Internal.VirtualDOM
 
 -- RUN THE APP
 
-runApp :: Show msg => (msg -> s -> (s, Cmd msg)) -> s -> (s -> Html msg) -> IO ()
+runApp :: (Show msg, Show s) => (msg -> s -> (s, Cmd msg)) -> s -> (s -> Html msg) -> IO ()
 runApp update init view = do
   mainNode <- getElementById "main-node"
-  stateRef <- newIORef init
+  msgRef <- newIORef []
 
-  let render s = do
+  let collapseState = foldr (\acc v -> fst (update acc v)) init
+
+  let render oldDOM = do
         let handleEvent evtMsg = do
-              currentState <- readIORef stateRef
-              let (newState, cmd) = update evtMsg currentState
-              res <- runCmd cmd
-              writeIORef stateRef newState
-              case res of
-                Nothing  -> render newState
-                Just msg -> handleEvent msg
+              modifyIORef msgRef (evtMsg:)
+              msgs <- readIORef msgRef
+              let latest = collapseState msgs
+              let last = collapseState (drop 1 msgs)
+              Effects.putStrLn (show (msgs, latest))
+              patch handleEvent mainNode (Just (view last)) (Just (view latest))
 
-        mainNode `setInnerHTML` "" -- clears all children, TODO: should diff instead of this
-        let rootNodeToRender = view s
-        rootNodeRendered <- renderVNode handleEvent rootNodeToRender
-        mainNode `appendChild` rootNodeRendered
+        msgs <- readIORef msgRef
+        let latest = collapseState msgs
+        patch handleEvent mainNode oldDOM (Just (view latest))
 
-  render init
+  render Nothing
