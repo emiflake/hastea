@@ -77,6 +77,7 @@ instance Functor VNode where
       VText t -> VText t
 
 
+
 renderVNode :: Percolate a -> VNode a -> IO DOMNode
 renderVNode percolate VNode{tagName, attributes, children} = do
   el <- createElement tagName
@@ -86,14 +87,3 @@ renderVNode percolate VNode{tagName, attributes, children} = do
     el `appendChild` child
   pure el
 renderVNode _ (VText text) = createTextNode text
-
-
-
-
-
-createEl :: Percolate a -> VNode a -> IO ()
-createEl percolate node =
-  case node of
-    VText t -> createTextNode t
-    VNode{tagName, attributes, children} ->
-      el

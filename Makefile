@@ -19,5 +19,13 @@ clean:
 	find . -name *.hi -exec rm {} \;
 	find . -name *.o -exec rm {} \;
 
+
+
+BUILD_CMD=ahc-link --input-hs src/Main.hs --bundle --browser --output-dir=$(DIST_DIR)
+docker-build:
+	@echo "Booting docker to compile it"
+	docker run --rm -it -v $(shell pwd):/hastea -w /hastea terrorjack/asterius /bin/bash -c "$(BUILD_CMD)"
+
 build:
-	ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
+	$(BUILD_CMD)
+
