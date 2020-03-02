@@ -12,9 +12,9 @@
    #+BEGIN_SRC bash
    ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
    #+END_SRC
-  Alternatively you can also try `make docker`
+   Alternatively you can also try ~make docker-build~.
 
-  No other methods have been tried, unfortunately
+   Other methods have had no success as of yet.
 * TODOs
 ** Development
   - Test out different input methods
@@ -22,3 +22,5 @@
   - Figure out build system
     - Create library instead of executable
     - Import library into a Main.hs, rather than just inline
+    - Native nix build (blocked by asterius)
+    - cabal-style build
