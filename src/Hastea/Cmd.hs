@@ -17,6 +17,18 @@ import           Data.Coerce
 import           Prelude                         hiding (log)
 
 
+
+{-| TODO: rework Cmd system
+Idea: use a Monad that produces Messages, or Side effects and returns a new State
+Essentially, the state monad.
+@
+
+newtype Cmd state msg = Cmd { runCmd :: state -> (msg, state) }
+
+@
+-}
+
+
 import qualified Hastea.Internal.Foreign.Effects as Effs
 
 

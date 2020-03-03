@@ -19,8 +19,6 @@ clean:
 	find . -name *.hi -exec rm {} \;
 	find . -name *.o -exec rm {} \;
 
-
-
 BUILD_CMD=ahc-link --input-hs src/Main.hs --bundle --browser --output-dir=$(DIST_DIR)
 docker-build:
 	@echo "Booting docker to compile it"

@@ -34,6 +34,7 @@ data Attrib
 
 
 setAttrib :: DOMNode -> Attrib -> IO ()
+setAttrib node Attrib{key="value", value} = DOM.setValue node value -- *angry mumbling* 
 setAttrib node Attrib{key, value} = DOM.setAttribute node key value
 
 
@@ -101,9 +102,11 @@ updateAttribute :: Percolate a -> DOMNode -> VAttribute a -> IO ()
 updateAttribute percolate node attribute =
   -- FIXME: diffing event handlers
   case attribute of
-    attribute'@(VAttribute _) -> do
+    attribute'@(VAttribute attrib) -> do
+      -- Effects.putStrLn ("Updating attribute " <> show attrib)
       removeAttribute percolate node attribute'
       applyAttribute percolate node attribute'
+
     _ -> pure ()
 
 
@@ -142,19 +145,19 @@ patchIndexed _ _ Nothing Nothing _ = pure ()
 
 -- NEW NODE
 patchIndexed percolate parent Nothing (Just new) _ = do
-  Effects.putStrLn ("Creating node " <> show new)
+  -- Effects.putStrLn ("Creating node " <> show new)
   renderVNode percolate new >>= DOM.appendChild parent
 
 
 -- DELETE NODE
 patchIndexed _ parent (Just _) Nothing index = do
-  Effects.putStrLn ("Removing node " <> show index)
+  -- Effects.putStrLn ("Removing node " <> show index)
   parent `DOM.removeChildIndex` index
 
 
 -- TEXT CHANGE
 patchIndexed _ parent (Just (VText oldText)) (Just (VText newText)) index = do
-  Effects.putStrLn ("Text change from: \"" <> show oldText <> "\" to \"" <> show newText <> "\"")
+  -- Effects.putStrLn ("Text change from: \"" <> show oldText <> "\" to \"" <> show newText <> "\"")
   when (oldText /= newText) $
     if index == 0
     then parent `DOM.setTextContent` newText
@@ -180,20 +183,29 @@ patchIndexed percolate parent (Just old) (Just new) index = do
     Just me ->
       if changed old new
       then do
-        Effects.putStrLn ("Two nodes changed " <> show index)
+        -- Effects.putStrLn ("Two nodes changed " <> show index)
         renderVNode percolate new >>= \node -> DOM.replaceChild parent node me
       else do
-        Effects.putStrLn ("Two nodes were the same " <> show index <> " were their attributes the same?")
+        -- Effects.putStrLn ("Two nodes were the same " <> show index <> " were their attributes the same?")
         case (old, new) of
           (VNode{ attributes = oldAttribs, tagName }, VNode{ attributes = newAttribs }) -> do
-            Effects.putStrLn ("Namely, '" <> tagName <> "'")
+            -- Effects.putStrLn ("Namely, '" <> tagName <> "'")
             updateAttributes percolate me newAttribs
           _ -> pure ()
         walkChildren percolate me old new
 
+
+-- Seriously remove this
+lookupMaybe :: [a] -> Int -> Maybe a
+lookupMaybe xs i
+  | i < 0 || i >= length xs = Nothing -- really slow
+  | otherwise               = Just (xs !! i)
+
+
+-- Prefer Vector
 walkChildren :: Percolate a -> DOMNode -> VNode a -> VNode a -> IO ()
 walkChildren percolate target old new = do
-  Effects.putStrLn ("Walking children, old length: " <> show oldLength <> " new length: " <> show newLength)
+  -- Effects.putStrLn ("Walking children, old length: " <> show oldLength <> " new length: " <> show newLength)
   if oldLength > newLength
   then do
     walkIndices [0..(newLength - 1)]
@@ -201,10 +213,10 @@ walkChildren percolate target old new = do
   else
     walkIndices [0..(newLength - 1)]
   where
-    walkIndices ixs =
+    walkIndices ixs = do
       forM_ ixs $ \ix -> do
-        Effects.putStrLn (show (ix, children old !! ix, children new !! ix))
-        patchIndexed percolate target (Just $ children old !! ix) (Just $ children new !! ix) ix
+        -- Effects.putStrLn (show (ix, children old `lookupMaybe` ix, children new `lookupMaybe` ix))
+        patchIndexed percolate target (children old `lookupMaybe` ix) (children new `lookupMaybe` ix) ix
 
     oldLength = length $ children old
     newLength = length $ children new
