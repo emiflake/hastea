@@ -3,7 +3,7 @@
 
 * Fun with Asterius
   The Elm Architecture is a wonderful means for creating web apps without worrying about runtime errors, Hastea is a TEA-inspered web framework using those principles ontop of Haskell compilation through Asterius
-  [[file:https://i.imgur.com/6uEn5Wt.gif]]
+  TodoMVC example (under `src/TodoMVC`):
   [[file:https://i.imgur.com/EygKvbo.gif]]
   
 * Building
