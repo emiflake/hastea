@@ -4,6 +4,7 @@
 * Fun with Asterius
   The Elm Architecture is a wonderful means for creating web apps without worrying about runtime errors, Hastea is a TEA-inspered web framework using those principles ontop of Haskell compilation through Asterius
   [[file:https://i.imgur.com/6uEn5Wt.gif]]
+  [[file:https://i.imgur.com/RcWUOJX.gif]]
   
 * Building
 ** Using Docker
@@ -17,7 +18,6 @@
    Other methods have had no success as of yet.
 * TODOs
 ** Development
-  - Test out different input methods
   - Benchmark
   - Figure out build system
     - Create library instead of executable

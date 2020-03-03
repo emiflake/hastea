@@ -180,7 +180,11 @@ view model =
     , footer
         [ className "info"]
         [ p [] [ text "Double-click to edit a todo" ]
-        , p [] [ text "Created by emiflake" ]
+        , p [] [ span [] [ text "Created with "]
+               , a [ href "https://github.com/emiflake/hastea" ] [ text "Hastea" ]
+               , span [] [ text " and " ]
+               , a [ href "https://github.com/tweag/asterius" ] [ text "Asterius" ]
+               ]
         ]
     ]
 
