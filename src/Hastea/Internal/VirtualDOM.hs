@@ -13,7 +13,7 @@ import           Prelude
 
 import           Control.Monad
 
-import           Asterius.Prim
+import           Hastea.Internal.Foreign.FFI
 import           Asterius.Types
 
 import           Hastea.Decode

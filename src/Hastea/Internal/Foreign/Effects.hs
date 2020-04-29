@@ -10,8 +10,8 @@ import           Prelude        hiding (alert, putStrLn)
 import           Asterius.Types
 
 
-foreign import javascript "alert(${1})" ffi_alert :: JSString -> IO ()
-foreign import javascript "console.log(${1})" ffi_putStrLn :: JSString -> IO ()
+foreign import javascript "alert($1)" ffi_alert :: JSString -> IO ()
+foreign import javascript "console.log($1)" ffi_putStrLn :: JSString -> IO ()
 
 
 alert :: String -> IO ()

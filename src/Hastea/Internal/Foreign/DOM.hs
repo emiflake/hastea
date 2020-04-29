@@ -22,29 +22,29 @@ module Hastea.Internal.Foreign.DOM
   where
 
 
-import           Asterius.Prim
+import           Hastea.Internal.Foreign.FFI
 import           Asterius.Types
 import           Data.Coerce
 import           Foreign.StablePtr
 import           Hastea.Decode
 
-foreign import javascript "document.getElementById(${1})" ffi_getElementById :: JSString -> IO JSVal
-foreign import javascript "(${1}).innerHTML = ${2}" ffi_setInnerHTML :: JSVal -> JSVal -> IO ()
-foreign import javascript "(${1}).setAttribute(${2}, ${3})" ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
-foreign import javascript "(${1}).value = (${2})" ffi_setValue :: JSVal -> JSString -> IO ()
-foreign import javascript "(${1}).removeAttribute(${2})" ffi_removeAttribute :: JSVal -> JSString -> IO ()
-foreign import javascript "document.createElement(${1})" ffi_createElement :: JSString -> IO JSVal
-foreign import javascript "document.createTextNode(${1})" ffi_createTextNode :: JSString -> IO JSVal
-foreign import javascript "(${1}).appendChild(${2})" ffi_appendChild :: JSVal -> JSVal -> IO ()
-foreign import javascript "(${1}).addEventListener(${2},${3})" ffi_addEventListener :: JSVal -> JSString -> JSFunction -> IO ()
-foreign import javascript "(${1}).removeEventListener(${2},${3})" ffi_removeEventListener :: JSVal -> JSString -> JSFunction -> IO ()
-foreign import javascript "console.log(${1})" ffi_print :: JSVal -> IO ()
-foreign import javascript "(${1}).childNodes[${2}]" ffi_childAt :: JSVal -> Int -> IO JSVal
-foreign import javascript "(${1}).removeChild(${2})" ffi_removeChild :: JSVal -> JSVal -> IO ()
-foreign import javascript "(${1}).textContent = (${2})" ffi_setTextContent :: JSVal -> JSString -> IO ()
-foreign import javascript "(${1}).childElementCount" ffi_childElementCount :: JSVal -> IO Int
-foreign import javascript "(${1}).replaceChild(${2}, ${3})" ffi_replaceChild :: JSVal -> JSVal -> JSVal -> IO ()
-foreign import javascript "window.requestAnimationFrame(${1})" ffi_requestAnimationFrame :: JSFunction -> IO ()
+foreign import javascript "document.getElementById($1)" ffi_getElementById :: JSString -> IO JSVal
+foreign import javascript "($1).innerHTML = $2" ffi_setInnerHTML :: JSVal -> JSVal -> IO ()
+foreign import javascript "($1).setAttribute($2, $3)" ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
+foreign import javascript "($1).value = ($2)" ffi_setValue :: JSVal -> JSString -> IO ()
+foreign import javascript "($1).removeAttribute($2)" ffi_removeAttribute :: JSVal -> JSString -> IO ()
+foreign import javascript "document.createElement($1)" ffi_createElement :: JSString -> IO JSVal
+foreign import javascript "document.createTextNode($1)" ffi_createTextNode :: JSString -> IO JSVal
+foreign import javascript "($1).appendChild($2)" ffi_appendChild :: JSVal -> JSVal -> IO ()
+foreign import javascript "($1).addEventListener($2,$3)" ffi_addEventListener :: JSVal -> JSString -> JSFunction -> IO ()
+foreign import javascript "($1).removeEventListener($2,$3)" ffi_removeEventListener :: JSVal -> JSString -> JSFunction -> IO ()
+foreign import javascript "console.log($1)" ffi_print :: JSVal -> IO ()
+foreign import javascript "($1).childNodes[$2]" ffi_childAt :: JSVal -> Int -> IO JSVal
+foreign import javascript "($1).removeChild($2)" ffi_removeChild :: JSVal -> JSVal -> IO ()
+foreign import javascript "($1).textContent = ($2)" ffi_setTextContent :: JSVal -> JSString -> IO ()
+foreign import javascript "($1).childElementCount" ffi_childElementCount :: JSVal -> IO Int
+foreign import javascript "($1).replaceChild($2, $3)" ffi_replaceChild :: JSVal -> JSVal -> JSVal -> IO ()
+foreign import javascript "window.requestAnimationFrame($1)" ffi_requestAnimationFrame :: JSFunction -> IO ()
 
 -- FFI Wrappers
 
@@ -63,7 +63,7 @@ getElementById elemId =
 
 requestAnimationFrame :: IO () -> IO ()
 requestAnimationFrame handler = do
-  callback <- makeHaskellCallback $ coerce handler
+  callback <- makeHaskellCallback1 $ \_ -> coerce handler
   ffi_requestAnimationFrame callback
 
 

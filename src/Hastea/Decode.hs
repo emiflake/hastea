@@ -55,14 +55,14 @@ instance Applicative (Decode' String) where
 -- This behavior is potentially dangerous.
 
 
-foreign import javascript "typeof (${1}) == 'string'" ffi_isString :: JSVal -> Bool
-foreign import javascript "typeof (${1}) == 'number'" ffi_isNumber :: JSVal -> Bool
-foreign import javascript "(${1}) instanceof Array" ffi_isArray :: JSVal -> Bool
-foreign import javascript "${1} instanceof Object" ffi_isObject :: JSVal -> Bool
-foreign import javascript "${1} in ${2}" ffi_keyIsIn :: JSVal -> JSObject -> Bool
-foreign import javascript "${1}[${2}]" ffi_keyGet :: JSObject -> JSString -> JSVal
-foreign import javascript "(${1}) === null" ffi_isNull :: JSVal -> Bool
-foreign import javascript "!!(${1})" ffi_truthy :: JSVal -> Bool
+foreign import javascript "typeof ($1) == 'string'" ffi_isString :: JSVal -> Bool
+foreign import javascript "typeof ($1) == 'number'" ffi_isNumber :: JSVal -> Bool
+foreign import javascript "($1) instanceof Array" ffi_isArray :: JSVal -> Bool
+foreign import javascript "$1 instanceof Object" ffi_isObject :: JSVal -> Bool
+foreign import javascript "$1 in $2" ffi_keyIsIn :: JSVal -> JSObject -> Bool
+foreign import javascript "$1[$2]" ffi_keyGet :: JSObject -> JSString -> JSVal
+foreign import javascript "($1) === null" ffi_isNull :: JSVal -> Bool
+foreign import javascript "!!($1)" ffi_truthy :: JSVal -> Bool
 
 
 
