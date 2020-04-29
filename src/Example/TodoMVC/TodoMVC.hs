@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-module TodoMVC.TodoMVC
+module Example.TodoMVC.TodoMVC
   ( runTodoMVC
   )
   where
@@ -13,8 +13,8 @@ import qualified Hastea.Cmd  as Cmd
 import           Hastea.Html
 
 
-import qualified TodoMVC.Todos as Todos
-import TodoMVC.Todos (Todos, Todo)
+import qualified Example.TodoMVC.Todos as Todos
+import Example.TodoMVC.Todos (Todos, Todo)
 
 
 data Model

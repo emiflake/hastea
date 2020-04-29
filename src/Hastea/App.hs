@@ -35,7 +35,7 @@ runApp update init view = do
               let cmd = snd $ update evtMsg last 
               maybeMsg <- runCmd cmd
               Effects.putStrLn ("Got message: " <> show evtMsg)
-              Effects.putStrLn ("now, latest state:" <> show latest)
+              -- Effects.putStrLn ("now, latest state:" <> show latest)
               case maybeMsg of
                 Just msg ->
                   handleEvent msg

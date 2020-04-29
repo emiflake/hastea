@@ -1,6 +1,6 @@
 module Main where
 
-import TodoMVC.TodoMVC (runTodoMVC)
+import Example.TodoMVC.TodoMVC (runTodoMVC)
 
 main :: IO ()
 main = runTodoMVC

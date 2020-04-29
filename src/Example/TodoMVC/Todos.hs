@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-module TodoMVC.Todos
+module Example.TodoMVC.Todos
   ( add
   , viewTodo
   , viewTodos

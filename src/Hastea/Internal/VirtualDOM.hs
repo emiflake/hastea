@@ -196,11 +196,12 @@ patchIndexed percolate parent (Just old) (Just new) index = do
 
 
 -- Seriously remove this
-lookupMaybe :: [a] -> Int -> Maybe a
-lookupMaybe xs i
-  | i < 0 || i >= length xs = Nothing -- really slow
-  | otherwise               = Just (xs !! i)
-
+tryLookup :: [a] -> Int -> Maybe a
+tryLookup xs i =
+  case xs of
+    (_:xs) | i > 0 -> tryLookup xs (pred i)
+    (x:_) | i == 0 -> Just x
+    _ -> Nothing
 
 -- Prefer Vector
 walkChildren :: Percolate a -> DOMNode -> VNode a -> VNode a -> IO ()
@@ -215,8 +216,8 @@ walkChildren percolate target old new = do
   where
     walkIndices ixs = do
       forM_ ixs $ \ix -> do
-        -- Effects.putStrLn (show (ix, children old `lookupMaybe` ix, children new `lookupMaybe` ix))
-        patchIndexed percolate target (children old `lookupMaybe` ix) (children new `lookupMaybe` ix) ix
+        -- Effects.putStrLn (show (ix, children old `tryLookup` ix, children new `tryLookup` ix))
+        patchIndexed percolate target (children old `tryLookup` ix) (children new `tryLookup` ix) ix
 
     oldLength = length $ children old
     newLength = length $ children new
