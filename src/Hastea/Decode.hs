@@ -18,9 +18,8 @@ module Hastea.Decode
 
 import           Control.Applicative
 
-import           Asterius.Types
 import           Data.Coerce
-import           Unsafe.Coerce
+import           Hastea.Internal.Foreign.Types
 
 
 
@@ -55,14 +54,17 @@ instance Applicative (Decode' String) where
 -- This behavior is potentially dangerous.
 
 
-foreign import javascript "typeof ($1) == 'string'" ffi_isString :: JSVal -> Bool
-foreign import javascript "typeof ($1) == 'number'" ffi_isNumber :: JSVal -> Bool
-foreign import javascript "($1) instanceof Array" ffi_isArray :: JSVal -> Bool
-foreign import javascript "$1 instanceof Object" ffi_isObject :: JSVal -> Bool
-foreign import javascript "$1 in $2" ffi_keyIsIn :: JSVal -> JSObject -> Bool
-foreign import javascript "$1[$2]" ffi_keyGet :: JSObject -> JSString -> JSVal
-foreign import javascript "($1) === null" ffi_isNull :: JSVal -> Bool
-foreign import javascript "!!($1)" ffi_truthy :: JSVal -> Bool
+foreign import javascript unsafe "typeof ($1) == 'string'" ffi_isString :: JSVal -> Bool
+foreign import javascript unsafe "typeof ($1) == 'number'" ffi_isNumber :: JSVal -> Bool
+foreign import javascript unsafe "($1) instanceof Array" ffi_isArray :: JSVal -> Bool
+foreign import javascript unsafe "$1 instanceof Object" ffi_isObject :: JSVal -> Bool
+foreign import javascript unsafe "$1 in $2" ffi_keyIsIn :: JSVal -> JSObject -> Bool
+foreign import javascript unsafe "$1[$2]" ffi_keyGet :: JSObject -> JSString -> JSVal
+-- Loose equality on purpose: also treats `undefined` as null
+-- (e.g. `childNodes[i]` past the end).
+foreign import javascript unsafe "($1) == null" ffi_isNull :: JSVal -> Bool
+foreign import javascript unsafe "$1" ffi_toNumber :: JSVal -> Double
+foreign import javascript unsafe "!!($1)" ffi_truthy :: JSVal -> Bool
 
 
 
@@ -97,7 +99,7 @@ number :: Decode Double
 number =
   Decode $ \val ->
     if ffi_isNumber val
-    then Right (unsafeCoerce val)
+    then Right (ffi_toNumber val)
     else Left "was not number"
 
 

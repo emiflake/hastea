@@ -1,8 +1,18 @@
 module Hastea.Internal.Foreign.FFI
-  ( makeHaskellCallback1 )
+  ( makeHaskellCallback
+  , makeHaskellCallback1
+  )
   where
 
-import Asterius.Types
+import Hastea.Internal.Foreign.Types
 
-foreign import javascript "wrapper"
+
+-- "wrapper sync" turns a Haskell closure into a JavaScript function that runs
+-- synchronously when called (e.g. by the DOM for an event), rather than
+-- returning a Promise.
+
+foreign import javascript "wrapper sync"
+  makeHaskellCallback :: IO () -> IO JSFunction
+
+foreign import javascript "wrapper sync"
   makeHaskellCallback1 :: (JSObject -> IO ()) -> IO JSFunction

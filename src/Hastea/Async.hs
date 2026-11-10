@@ -1,20 +1,19 @@
-module Async
+module Hastea.Async
   ( setTimeout
   , defer
   , delay
   )
   where
 
-import           Asterius.Prim
-import           Asterius.Types
 import           Control.Concurrent
-import           Data.Coerce
+import           Hastea.Internal.Foreign.FFI   (makeHaskellCallback)
+import           Hastea.Internal.Foreign.Types
 
-foreign import javascript "setTimeout(${1}, ${2})" ffi_setTimeout :: JSFunction -> Int -> IO ()
+foreign import javascript unsafe "setTimeout($1, $2)" ffi_setTimeout :: JSFunction -> Int -> IO ()
 
 setTimeout :: IO () -> Int -> IO ()
 setTimeout action delay = do
-  callback <- makeHaskellCallback $ coerce action
+  callback <- makeHaskellCallback action
   ffi_setTimeout callback delay
 
 defer :: IO () -> IO ()

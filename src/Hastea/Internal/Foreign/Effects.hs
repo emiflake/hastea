@@ -4,14 +4,14 @@ module Hastea.Internal.Foreign.Effects
   )
   where
 
-import           Prelude        hiding (alert, putStrLn)
+import           Prelude                       hiding (alert, putStrLn)
 
 
-import           Asterius.Types
+import           Hastea.Internal.Foreign.Types
 
 
-foreign import javascript "alert($1)" ffi_alert :: JSString -> IO ()
-foreign import javascript "console.log($1)" ffi_putStrLn :: JSString -> IO ()
+foreign import javascript unsafe "alert($1)" ffi_alert :: JSString -> IO ()
+foreign import javascript unsafe "console.log($1)" ffi_putStrLn :: JSString -> IO ()
 
 
 alert :: String -> IO ()

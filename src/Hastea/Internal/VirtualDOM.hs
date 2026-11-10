@@ -14,7 +14,7 @@ import           Prelude
 import           Control.Monad
 
 import           Hastea.Internal.Foreign.FFI
-import           Asterius.Types
+import           Hastea.Internal.Foreign.Types
 
 import           Hastea.Decode
 import           Hastea.Internal.Foreign.DOM (DOMNode)

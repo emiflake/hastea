@@ -183,7 +183,7 @@ view model =
         , p [] [ span [] [ text "Created with "]
                , a [ href "https://github.com/emiflake/hastea" ] [ text "Hastea" ]
                , span [] [ text " and " ]
-               , a [ href "https://github.com/tweag/asterius" ] [ text "Asterius" ]
+               , a [ href "https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html" ] [ text "GHC's WebAssembly backend" ]
                ]
         ]
     ]

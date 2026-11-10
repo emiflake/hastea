@@ -1,27 +1,42 @@
 #+TITLE: Hastea web framework
 #+DESCRIPTION: A tasty hasty framework
 
-* Fun with Asterius
-  The Elm Architecture is a wonderful means for creating web apps without worrying about runtime errors, Hastea is a TEA-inspered web framework using those principles ontop of Haskell compilation through Asterius
-  
-**** TodoMVC example (under `src/TodoMVC`):
-     [[file:https://i.imgur.com/EygKvbo.gif]]
-  
-* Building
-** Using Docker
-   You can find an asterius docker image on [[https://hub.docker.com/r/terrorjack/asterius][docker hub]]
-   using this, you can run the following command, which will compile the Main.hs to dist
-   #+BEGIN_SRC bash
-   ahc-link --input-hs Main.hs --bundle --browser --output-dir=$(DIST_DIR)
-   #+END_SRC
-   Alternatively you can also try ~make docker-build~.
+* Fun with WebAssembly
+  The Elm Architecture is a wonderful means for creating web apps without worrying about runtime errors, Hastea is a TEA-inspired web framework using those principles on top of Haskell compiled to WebAssembly with [[https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html][GHC's WebAssembly backend]].
 
-   Other methods have had no success as of yet.
+  (Hastea originally targeted Asterius, which has since been superseded by the wasm backend in mainline GHC.)
+
+**** TodoMVC example (under `src/Example/TodoMVC`):
+     [[file:https://i.imgur.com/EygKvbo.gif]]
+
+* Building
+** Get the wasm toolchain
+   You need the ~wasm32-wasi-ghc~ cross-compiler from [[https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta][ghc-wasm-meta]]. Either:
+
+   - With Nix:
+     #+BEGIN_SRC bash
+     nix shell 'gitlab:haskell-wasm/ghc-wasm-meta?host=gitlab.haskell.org'
+     #+END_SRC
+   - Without Nix (x86_64/aarch64 Linux, macOS):
+     #+BEGIN_SRC bash
+     curl https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | sh
+     source ~/.ghc-wasm/env
+     #+END_SRC
+
+   Hastea is tested with the GHC 9.14 flavour, but only uses ~base~, ~containers~ and ~ghc-experimental~, so 9.10+ should work.
+
+** Build and run
+   #+BEGIN_SRC bash
+   make          # compiles to dist/
+   make serve    # serves dist/ on http://localhost:8080
+   #+END_SRC
+
+   ~dist/~ contains ~hastea.wasm~, the generated ~ghc_wasm_jsffi.js~ glue, and ~index.js~, which loads the module using [[https://github.com/bjorn3/browser_wasi_shim][browser_wasi_shim]] (fetched from jsDelivr).
+
 * TODOs
 ** Development
   - Benchmark
   - Figure out build system
     - Create library instead of executable
     - Import library into a Main.hs, rather than just inline
-    - Native nix build (blocked by asterius)
-    - cabal-style build
+    - cabal-style build (~wasm32-wasi-cabal~ from ghc-wasm-meta)

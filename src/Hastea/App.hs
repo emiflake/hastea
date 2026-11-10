@@ -4,7 +4,7 @@ module Hastea.App
   where
 
 
-import           Asterius.Types
+import           Hastea.Internal.Foreign.Types
 import           Data.IORef
 import           Hastea.Cmd
 import           Hastea.Html

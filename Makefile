@@ -1,29 +1,34 @@
 #
-# Depends on ahc-link which you can get here
-#   https://asterius.netlify.com/building.html
+# Builds Hastea with GHC's WebAssembly backend.
 #
-# You can use the docker for compilation, but note it does not have Makefile by default
+# Needs the wasm32-wasi GHC cross-compiler from ghc-wasm-meta:
+#   https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta
+# See README.org for setup instructions.
 #
-DIST_DIR= ./dist
+GHC      ?= wasm32-wasi-ghc
+DIST_DIR ?= ./dist
+OUT_DIR  ?= ./build
+PORT     ?= 8080
 
+GHC_FLAGS = -isrc -O2 -outputdir $(OUT_DIR) \
+	-no-hs-main -optl-mexec-model=reactor -optl-Wl,--export=hs_start
+
+POST_LINK = $(shell $(GHC) --print-libdir)/post-link.mjs
 
 all: build
 
-server: copy-bins
-	cd $(DIST_DIR) && warp -v
+build: $(DIST_DIR)
+	$(GHC) $(GHC_FLAGS) src/Main.hs -o $(DIST_DIR)/hastea.wasm
+	$(POST_LINK) -i $(DIST_DIR)/hastea.wasm -o $(DIST_DIR)/ghc_wasm_jsffi.js
+	cp index.html index.css index.js $(DIST_DIR)/
 
-copy-bins:
-	cp index.html $(DIST_DIR)
+$(DIST_DIR):
+	mkdir -p $(DIST_DIR)
+
+serve: build
+	cd $(DIST_DIR) && python3 -m http.server $(PORT)
 
 clean:
-	find . -name *.hi -exec rm {} \;
-	find . -name *.o -exec rm {} \;
+	rm -rf $(OUT_DIR) $(DIST_DIR)
 
-BUILD_CMD=ahc-link --input-hs src/Main.hs --bundle --browser --output-dir=$(DIST_DIR)
-docker-build:
-	@echo "Booting docker to compile it"
-	docker run --rm -it -v $(shell pwd):/hastea -w /hastea terrorjack/asterius /bin/bash -c "$(BUILD_CMD)"
-
-build:
-	$(BUILD_CMD)
-
+.PHONY: all build serve clean
