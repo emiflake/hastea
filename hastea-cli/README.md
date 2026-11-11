@@ -19,9 +19,9 @@ cd hastea-cli
 cabal install
 ```
 
-That puts `hastea` in `~/.local/bin`. To run it without installing, use `cabal run -v0 hastea -- dev` from `hastea-cli/` (it finds the `hastea.yaml` above).
+That installs `hastea`, and `hastea-ffi-stand-in` for editors (see below), where cabal puts programs: `~/.local/bin` or `~/.cabal/bin`. To run it without installing, use `cabal run -v0 hastea -- dev` from `hastea-cli/` (it finds the `hastea.yaml` above).
 
-It needs the wasm toolchain from [ghc-wasm-meta](https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta) to do anything. If `wasm32-wasi-cabal` is not on your `PATH` but `~/.ghc-wasm` exists, the command uses the programs there by itself, so you do not have to source `~/.ghc-wasm/env`.
+It needs the wasm toolchain from [ghc-wasm-meta](https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta) to do anything. The command looks in `~/.ghc-wasm` for whatever is not on your `PATH`, so you do not have to source `~/.ghc-wasm/env`.
 
 On Windows, all of this runs inside WSL; see the repository's README.
 
@@ -102,3 +102,21 @@ Things to know:
 - **`run` and `foreign export`.** The `Main` module of an application usually has `foreign export javascript "hs_start" main`, for the built page to call. When GHCi reloads such a module, the browser's console shows errors about duplicate symbols (sometimes for modules with `foreign import javascript` too); the reload still works. Pointing `run` at a function in another module (`run: Example.TodoMVC.TodoMVC.runTodoMVC`) means `Main` is only reloaded when you edit it.
 - **The page needs the internet.** In browser mode, GHC's loader fetches its WASI shim from esm.sh. A built page does not.
 - **Browsers.** GHCi's browser mode works in Chrome and Firefox, but not in Safari or other WebKit browsers.
+
+## hastea-ffi-stand-in
+
+HLS cannot use GHC's wasm cross-compiler, and an ordinary GHC rejects `foreign import javascript`. `hastea-ffi-stand-in` is a preprocessor that lets an ordinary GHC typecheck such code anyway, which is how editors get to work on it. It turns
+
+```haskell
+foreign import javascript unsafe "alert($1)" ffi_alert :: JSString -> IO ()
+```
+
+into a definition with the same name and type that fails if it is ever used,
+
+```haskell
+ffi_alert = error "..."; ffi_alert :: JSString -> IO ()
+```
+
+and removes `foreign export javascript`. Everything else is passed on as it is, with every line in its place.
+
+The repository's own `hie.yaml` uses it; the root README says how. For an application of your own, give the components that import from JavaScript `ghc-options: -F -pgmF hastea-ffi-stand-in` when they are built with an ordinary GHC, in a `cabal.project` for your editor that does not select the wasm compiler, and point `hie.yaml` at that project with `cabalProject`. The `editor` flag in `hastea.cabal`, `cabal.project.hls` and `hie.yaml` here are an example of all three.

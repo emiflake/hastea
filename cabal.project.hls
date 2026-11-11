@@ -1,8 +1,18 @@
 -- For editors only. HLS cannot use GHC's wasm cross-compiler, so hie.yaml
 -- points it here, where the package is loaded with your ordinary GHC
--- instead. Only the parts that are pure Haskell build that way: the
--- hastea-html and hastea-component sublibraries and their tests. The rest
--- uses the JavaScript FFI of the wasm backend, and is not buildable here
--- (see `common wasm-only` in hastea.cabal).
+-- instead.
+--
+-- hastea-html and hastea-component are pure Haskell and build as they are.
+-- The rest imports from JavaScript, which an ordinary GHC rejects: the
+-- editor flag has those imports replaced by stand-ins while compiling, by
+-- hastea-ffi-stand-in from hastea-cli/, which has to be on the PATH. What
+-- comes out typechecks and cannot run.
+--
+-- To check that everything typechecks this way, as HLS will see it:
+--
+--   cabal build all --project-file=cabal.project.hls
 packages: .
 tests: True
+
+package hastea
+  flags: +editor

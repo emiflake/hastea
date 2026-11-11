@@ -37,22 +37,21 @@ ghcWasmPrefix = do
 
 
 {- | Make the toolchain reachable for this process and the programs it runs,
-so that @source ~\/.ghc-wasm\/env@ is not needed: if the cabal it should use
-is not on the PATH, put ghc-wasm-meta's programs there, and point NODE_PATH
-at its node modules (GHCi's browser mode needs @ws@ from there).
+so that @source ~\/.ghc-wasm\/env@ is not needed: put ghc-wasm-meta's
+programs at the end of the PATH, where they are found unless the PATH has
+its own, and point NODE_PATH at its node modules (GHCi's browser mode needs
+@ws@ from there).
 
 Only the PATH and NODE_PATH are changed. The rest of ghc-wasm-meta's env file
 points CC and LD at the wasm C toolchain, which would break anything else
 that compiles C.
 -}
-prepareEnvironment :: Toolchain -> IO ()
-prepareEnvironment toolchain =
+prepareEnvironment :: IO ()
+prepareEnvironment =
   ghcWasmPrefix >>= mapM_ \prefix -> do
-    onPath <- findExecutable toolchain.cabal
-    when (isNothing onPath) $ do
-      folders <- filterM doesDirectoryExist (map (prefix </>) ["wasm32-wasi-cabal/bin", "wasm32-wasi-ghc/bin", "nodejs/bin", "binaryen/bin", "wasmtime/bin"])
-      path <- lookupEnv "PATH"
-      setEnv "PATH" (intercalate ":" (folders <> maybe [] pure path))
+    folders <- filterM doesDirectoryExist (map (prefix </>) ["wasm32-wasi-cabal/bin", "wasm32-wasi-ghc/bin", "nodejs/bin", "binaryen/bin", "wasmtime/bin"])
+    path <- lookupEnv "PATH"
+    setEnv "PATH" (intercalate ":" (maybe [] pure path <> folders))
     nodePath <- lookupEnv "NODE_PATH"
     let modules = prefix </> "nodejs/lib/node_modules"
     haveModules <- doesDirectoryExist modules

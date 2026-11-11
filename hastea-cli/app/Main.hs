@@ -37,7 +37,7 @@ main = do
         Just file -> pure file
         Nothing -> Log.dieWith "There is no hastea.yaml in this folder or above it."
   config <- loadConfig file >>= either (\failure -> Log.dieWith (T.pack file <> ": " <> failure)) pure
-  prepareEnvironment config.toolchain
+  prepareEnvironment
   let select name = either Log.dieWith pure (selectApp config name)
   case options.command of
     Build names buildOptions -> do

@@ -170,7 +170,7 @@ The tests cover the two pure sublibraries, `hastea-html` and `hastea-component`,
 The examples are run with the `hastea` command from [`hastea-cli/`](hastea-cli/README.md), which reads `hastea.yaml`. It is built with an ordinary GHC, in a shell where `~/.ghc-wasm/env` has not been sourced:
 
 ```bash
-(cd hastea-cli && cabal install)     # puts hastea in ~/.local/bin
+(cd hastea-cli && cabal install)     # installs hastea, and hastea-ffi-stand-in for your editor
 hastea dev                           # TodoMVC on http://localhost:8080, reloaded on every change, with a GHCi prompt
 hastea build                         # TodoMVC into dist/todomvc, ready to be served
 hastea dev react-comparison          # or another application from hastea.yaml
@@ -188,9 +188,11 @@ If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-ca
   fourmolu -i hastea-core hastea-html hastea-component examples hastea-cli
   ```
 
-- Editor support: HLS cannot use GHC's wasm cross-compiler, so `hie.yaml` has it load the package with your ordinary GHC, through `cabal.project.hls` (on Windows, run the editor's language server inside WSL, as Zed's and VS Code's remote modes do). That covers the pure Haskell: `hastea-html`, `hastea-component`, their tests and the helpers they share (`hastea-html/support/`). `hastea-core`, the examples and the benchmark use the wasm backend's JavaScript FFI, which an ordinary GHC cannot compile, so HLS leaves them alone; `hastea dev`'s GHCi prompt (`:t`, `:i`) is the way to ask about them. `hastea-cli/` has its own `hie.yaml`.
+- Editor support: HLS cannot use GHC's wasm cross-compiler, so `hie.yaml` has it load the package with your ordinary GHC, through `cabal.project.hls` (on Windows, run the editor's language server inside WSL, as Zed's and VS Code's remote modes do). An ordinary GHC rejects `foreign import javascript`, so there the `editor` flag of the package has each of those imports replaced by a stand-in of the same name and type while compiling. That is done by `hastea-ffi-stand-in`, which is installed with the `hastea` command and has to be on the `PATH` of your editor. With it, HLS covers everything: the libraries, the tests, the examples and the benchmark. `hastea-cli/` has its own `hie.yaml`.
 
-  Set HLS's `sessionLoading` to `multipleComponents`, so that the test suites and the libraries they use are loaded together; otherwise an error in `hastea-html` keeps its tests from loading at all. `.zed/settings.json` does this for Zed; in VS Code, it is the `haskell.sessionLoading` setting.
+  What HLS sees typechecks but cannot run, and positions on the line of a JavaScript import itself are a little off. To check from a terminal that everything typechecks this way: `cabal build all --project-file=cabal.project.hls`.
+
+  Set HLS's `sessionLoading` to `multipleComponents`, so that the components are loaded together; otherwise an error in a library keeps what depends on it from loading at all. `.zed/settings.json` does this for Zed; in VS Code, it is the `haskell.sessionLoading` setting.
 
 - The code builds warning-free under `-Wall -Wcompat`.
 

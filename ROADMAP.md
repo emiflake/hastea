@@ -37,6 +37,7 @@ Items are grouped by how much they hurt a real application. The performance item
 ## Developer experience
 
 - [ ] **Devtools** to inspect components, state and messages.
+- [x] **Editor support.** HLS loads the whole package with an ordinary GHC, with stand-ins for the JavaScript imports (`hastea-ffi-stand-in`). HLS itself cannot use the wasm compiler.
 - [ ] **Hot reload** (partly done). GHC's wasm GHCi can run the program in the page itself (`-fghci-browser`), where `:reload` takes well under a second. Running `main` again now replaces the application instead of stacking a second one, since mounting unmounts whatever root was there. `hastea dev` sets all of this up and reloads on every change. Still missing: keeping the model across a reload.
 - [ ] **Syntax friction** (partly done). Element names no longer clash with ordinary names, now that the examples import them qualified (`H.div`). Still there: `use counter ()` needs the unit, and `App` and `Component` share field names.
 - [ ] **Attaching to server-rendered markup.** `renderHtml` produces markup, but the runtime cannot take it over.

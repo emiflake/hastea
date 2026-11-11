@@ -45,6 +45,7 @@ library
     Hastea.Cli.Dev.Watch
     Hastea.Cli.Log
     Hastea.Cli.Runtime
+    Hastea.Cli.StandIn
     Hastea.Cli.Toolchain
 
   build-depends:
@@ -78,6 +79,18 @@ executable hastea
     , text
 
   ghc-options:    -threaded
+
+-- The preprocessor that lets an ordinary GHC, and so HLS, typecheck code
+-- that imports from JavaScript. See Hastea.Cli.StandIn.
+executable hastea-ffi-stand-in
+  import:         shared
+  hs-source-dirs: app-stand-in
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , bytestring
+    , hastea-cli
+    , text
 
 test-suite hastea-cli-test
   import:         shared

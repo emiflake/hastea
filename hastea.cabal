@@ -20,6 +20,19 @@ source-repository head
   type:     git
   location: https://github.com/emiflake/hastea.git
 
+-- For editors. HLS cannot use the wasm cross-compiler, so hie.yaml and
+-- cabal.project.hls have it load the package with an ordinary GHC and this
+-- flag. The components that import from JavaScript are then built with a
+-- preprocessor that puts a stand-in in the place of every import
+-- (hastea-ffi-stand-in, from hastea-cli, which has to be on the PATH). The
+-- result typechecks, and cannot run.
+flag editor
+  description:
+    Typecheck the components that use the JavaScript FFI with an ordinary GHC
+
+  default:     False
+  manual:      True
+
 common shared
   default-language:   GHC2021
 
@@ -36,10 +49,21 @@ common shared
 
   ghc-options:      -Wall -Wcompat
 
--- Components that use the JavaScript FFI of the wasm backend.
+-- Components that use the JavaScript FFI of the wasm backend. An ordinary
+-- GHC can only typecheck them, and only with the editor flag.
 common wasm-only
   if !arch(wasm32)
-    buildable: False
+    if flag(editor)
+      ghc-options: -F -pgmF hastea-ffi-stand-in
+
+    else
+      buildable: False
+
+-- Link as a WASI reactor exporting the entry point called by index.js.
+common reactor
+  if arch(wasm32)
+    ghc-options:
+      -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"
 
 -- HTML elements, attributes and events, decoders for event data, rendering
 -- to a string and diffing. Pure Haskell with no JavaScript, so it can be
@@ -151,14 +175,22 @@ library
     Hastea.Internal.Foreign.Types
 
   build-depends:
-    , base              >=4.20 && <5
-    , containers        >=0.6 && <0.9
-    , ghc-experimental
+    , base                                    >=4.20 && <5
+    , containers                              >=0.6  && <0.9
     , hastea:{hastea-component, hastea-html}
     , text
 
+  -- JSVal and its relatives come with the wasm backend. An ordinary GHC
+  -- gets a stand-in for them.
+  if arch(wasm32)
+    build-depends: ghc-experimental
+
+  else
+    hs-source-dirs:  hastea-core/stand-in
+    exposed-modules: GHC.Wasm.Prim
+
 executable hastea-todomvc
-  import:         shared, wasm-only
+  import:         shared, wasm-only, reactor
   hs-source-dirs: examples/todomvc
   main-is:        Main.hs
   other-modules:
@@ -171,12 +203,8 @@ executable hastea-todomvc
     , hastea
     , text
 
-  -- Link as a WASI reactor exporting the entry point called by index.js.
-  ghc-options:
-    -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"
-
 executable hastea-react-comparison
-  import:         shared, wasm-only
+  import:         shared, wasm-only, reactor
   hs-source-dirs: examples/ReactComparison
   main-is:        Main.hs
   other-modules:
@@ -197,19 +225,11 @@ executable hastea-react-comparison
     , hastea
     , text
 
-  -- Link as a WASI reactor exporting the entry point called by index.js.
-  ghc-options:
-    -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"
-
 executable hastea-benchmark
-  import:         shared, wasm-only
+  import:         shared, wasm-only, reactor
   hs-source-dirs: benchmark
   main-is:        Main.hs
   build-depends:
     , base
     , hastea
     , text
-
-  -- Link as a WASI reactor exporting the entry point called by index.js.
-  ghc-options:
-    -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"

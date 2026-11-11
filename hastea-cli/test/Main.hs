@@ -15,6 +15,7 @@ import Hastea.Cli.Config
 import Hastea.Cli.Dev.Ghci
 import Hastea.Cli.Dev.Page
 import Hastea.Cli.Dev.Watch
+import Hastea.Cli.StandIn
 
 
 type Suite = IORef (Int, [Text])
@@ -31,7 +32,7 @@ equal suite name expected actual =
 main :: IO ()
 main = do
   suite <- newIORef (0, [])
-  mapM_ ($ suite) [config, page, ghci, watch]
+  mapM_ ($ suite) [config, page, ghci, watch, standIns]
   (count, failures) <- readIORef suite
   mapM_ (T.putStrLn . ("FAIL " <>)) (reverse failures)
   putStrLn (show (count - length failures) <> " of " <> show count <> " checks passed")
@@ -150,3 +151,59 @@ watch suite = do
   equal suite "page" (Just PageChanged) (classify app "examples/todomvc/www/index.html")
   equal suite "other" Nothing (classify app "README.md")
   equal suite "a www lookalike" Nothing (classify app "examples/todomvc/wwwx/index.html")
+
+
+standIns :: Suite -> IO ()
+standIns suite = do
+  let failure = "error \"This is a stand-in for a JavaScript import, which only exists when compiled to WebAssembly.\""
+      stub name signature = name <> " = " <> failure <> "; " <> signature
+      rewritten = T.lines . standIn . T.unlines
+  equal
+    suite
+    "an import on one line"
+    [stub "ffi_alert" "ffi_alert :: JSString -> IO ()"]
+    (rewritten ["foreign import javascript unsafe \"alert($1)\" ffi_alert :: JSString -> IO ()"])
+  equal
+    suite
+    "an import over two lines"
+    ["", stub "ffi_focus" "ffi_focus :: JSString -> IO ()"]
+    (rewritten ["foreign import javascript unsafe \"document.getElementById($1)?.focus()\"", "  ffi_focus :: JSString -> IO ()"])
+  equal
+    suite
+    "a wrapper, without a safety"
+    ["", stub "makeCallback" "makeCallback :: IO () -> IO JSFunction"]
+    (rewritten ["foreign import javascript \"wrapper sync\"", "  makeCallback :: IO () -> IO JSFunction"])
+  equal
+    suite
+    "code over several lines, with quotes and escapes in it"
+    ["", "", "", stub "ffi_install" "ffi_install :: IO () -- once"]
+    ( rewritten
+        [ "foreign import javascript unsafe \"(() => { \\"
+        , "  \\const a = '\\\\x1e'; const b = \\\"x\\\"; \\"
+        , "  \\})()\""
+        , "  ffi_install :: IO () -- once"
+        ]
+    )
+  equal
+    suite
+    "a type that runs on"
+    [stub "ffi_fetch" "ffi_fetch ::", "  JSString -> IO ()"]
+    (rewritten ["foreign import javascript safe \"fetch($1)\" ffi_fetch ::", "  JSString -> IO ()"])
+  equal
+    suite
+    "an export goes"
+    ["main :: IO ()", "", "", "after = 1"]
+    (rewritten ["main :: IO ()", "foreign export javascript \"hs_start\"", "  main :: IO ()", "after = 1"])
+  let untouched =
+        [ "module A where"
+        , "-- foreign import javascript unsafe \"1\" one :: Int"
+        , "foreign import ccall \"sin\" c_sin :: Double -> Double"
+        , "  foreign import javascript, indented, is not a declaration"
+        , "foreign import javascript_ish"
+        ]
+  equal suite "everything else stays" untouched (rewritten untouched)
+  equal suite "something unexpected stays" ["foreign import javascript unsafe oops"] (rewritten ["foreign import javascript unsafe oops"])
+  let file = T.unlines ["module A where", "", "foreign import javascript unsafe \"1\"", "  one :: Int", "", "two :: Int", "two = one + one"]
+  equal suite "lines keep their numbers" (length (T.lines file)) (length (T.lines (standIn file)))
+  equal suite "and their places" (drop 4 (T.lines file)) (drop 4 (T.lines (standIn file)))
+  equal suite "the end of the file stays" "x = 1" (standIn "x = 1")

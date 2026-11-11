@@ -1,37 +1,28 @@
 # Editor support (HLS). HLS cannot use GHC's wasm cross-compiler, so the
-# package is loaded with your ordinary GHC, through cabal.project.hls.
+# package is loaded with your ordinary GHC, through cabal.project.hls, where
+# stand-ins take the place of the imports from JavaScript. That needs
+# hastea-ffi-stand-in on the PATH: install hastea-cli (see its README).
 #
-# That covers the pure Haskell: hastea-html, hastea-component and their
-# tests. hastea-core, the examples and the benchmark use the wasm backend's
-# JavaScript FFI, which an ordinary GHC cannot compile, so HLS leaves them
-# alone. hastea-cli/ has a hie.yaml of its own.
+# hastea-cli/ has a hie.yaml of its own.
 cradle:
-  multi:
-    - path: "./hastea-core"
-      config:
-        cradle:
-          none:
-    - path: "./examples"
-      config:
-        cradle:
-          none:
-    - path: "./benchmark"
-      config:
-        cradle:
-          none:
-    - path: "./"
-      config:
-        cradle:
-          cabal:
-            cabalProject: cabal.project.hls
-            components:
-              - path: "./hastea-html/src"
-                component: "hastea:lib:hastea-html"
-              - path: "./hastea-html/test"
-                component: "hastea:test:hastea-html-test"
-              - path: "./hastea-html/support"
-                component: "hastea:lib:test-support"
-              - path: "./hastea-component/src"
-                component: "hastea:lib:hastea-component"
-              - path: "./hastea-component/test"
-                component: "hastea:test:hastea-component-test"
+  cabal:
+    cabalProject: cabal.project.hls
+    components:
+      - path: "./hastea-html/src"
+        component: "hastea:lib:hastea-html"
+      - path: "./hastea-html/test"
+        component: "hastea:test:hastea-html-test"
+      - path: "./hastea-html/support"
+        component: "hastea:lib:test-support"
+      - path: "./hastea-component/src"
+        component: "hastea:lib:hastea-component"
+      - path: "./hastea-component/test"
+        component: "hastea:test:hastea-component-test"
+      - path: "./hastea-core"
+        component: "hastea:lib:hastea"
+      - path: "./examples/todomvc"
+        component: "hastea:exe:hastea-todomvc"
+      - path: "./examples/ReactComparison"
+        component: "hastea:exe:hastea-react-comparison"
+      - path: "./benchmark"
+        component: "hastea:exe:hastea-benchmark"
