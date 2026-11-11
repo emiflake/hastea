@@ -1,12 +1,11 @@
 module Main (main) where
 
-import Prelude hiding (div, head, span)
-
 import Control.Applicative ((<|>))
 import Control.Exception (SomeException, evaluate, try)
 import Data.List (nub, sortOn, (\\))
 
-import Hastea.Html
+import Hastea.Html (Attribute, Html)
+import Hastea.Html qualified as H
 import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Decode (Decoder, Value (..), decodeValue)
 import Hastea.Html.Decode qualified as D
@@ -52,11 +51,11 @@ elementTests suite = do
   equal suite "no element outside the HTML standard" [] (tags \\ standardElements)
 
   equal suite "elements keep attributes and children" "<p id=\"x\"><b>hi</b> there</p>" $
-    renderHtml (p [A.id_ "x"] [b [] [text "hi"], text " there"])
+    renderHtml (H.p [A.id_ "x"] [H.b [] [H.text "hi"], H.text " there"])
   equal suite "void elements keep attributes" "<img src=\"a.png\" alt=\"A\">" $
-    renderHtml (img [A.src "a.png", A.alt "A"])
+    renderHtml (H.img [A.src "a.png", A.alt "A"])
   equal suite "custom elements" "<my-widget mode=\"x\">hi</my-widget>" $
-    renderHtml (node "my-widget" [A.attrib "mode" "x"] [text "hi"])
+    renderHtml (H.node "my-widget" [A.attrib "mode" "x"] [H.text "hi"])
 
 
 {- | The elements of the HTML Living Standard, written out independently of
@@ -84,7 +83,7 @@ attributeTests suite = do
           suite
           ("attribute " <> describe attribute)
           ("<div" <> (if null expected then "" else " " <> expected) <> "></div>")
-          (renderHtml (div [attribute] []))
+          (renderHtml (H.div [attribute] []))
     )
     Tables.attributes
 
@@ -111,9 +110,9 @@ attributeTests suite = do
     describe (A.disabled True)
 
   equal suite "properties render like attributes" "<input value=\"hi\" checked>" $
-    renderHtml (input [A.value "hi", A.checked True, A.selected False])
+    renderHtml (H.input [A.value "hi", A.checked True, A.selected False])
   equal suite "negative and zero integers" "<div tabindex=\"-1\" width=\"0\"></div>" $
-    renderHtml (div [A.tabIndex (-1), A.width 0] [])
+    renderHtml (H.div [A.tabIndex (-1), A.width 0] [])
 
 
 -- RENDERING
@@ -121,36 +120,36 @@ attributeTests suite = do
 renderTests :: Suite -> IO ()
 renderTests suite = do
   equal suite "text is escaped" "<p>1 &lt; 2 &amp;&amp; 3 &gt; 2 \"ok\"</p>" $
-    renderHtml (p [] [text "1 < 2 && 3 > 2 \"ok\""])
+    renderHtml (H.p [] [H.text "1 < 2 && 3 > 2 \"ok\""])
   equal suite "attribute values are escaped" "<a title=\"&quot;a&quot; &amp; &lt;b&gt;\"></a>" $
-    renderHtml (a [A.title "\"a\" & <b>"] [])
+    renderHtml (H.a [A.title "\"a\" & <b>"] [])
   equal suite "text cannot inject markup" "<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>" $
-    renderHtml (div [] [text "<script>alert(1)</script>"])
+    renderHtml (H.div [] [H.text "<script>alert(1)</script>"])
   equal suite "attributes cannot break out of quotes" "<div class=\"&quot; onclick=&quot;x\"></div>" $
-    renderHtml (div [A.className "\" onclick=\"x"] [])
+    renderHtml (H.div [A.className "\" onclick=\"x"] [])
 
   equal suite "script content is raw" "<script>if (a < b && c) {}</script>" $
-    renderHtml (script [] [text "if (a < b && c) {}"])
+    renderHtml (H.script [] [H.text "if (a < b && c) {}"])
   equal suite "style content is raw" "<style>a > b { color: red }</style>" $
-    renderHtml (style [] [text "a > b { color: red }"])
+    renderHtml (H.style [] [H.text "a > b { color: red }"])
 
   equal suite "void elements drop children" "<br>" $
-    renderHtml (node "br" [] [text "ignored"])
+    renderHtml (H.node "br" [] [H.text "ignored"])
   equal suite "empty elements get a closing tag" "<textarea></textarea>" $
-    renderHtml (textarea [] [])
-  equal suite "a lone text node" "hi" (renderHtml (text "hi" :: Html ()))
+    renderHtml (H.textarea [] [])
+  equal suite "a lone text node" "hi" (renderHtml (H.text "hi" :: Html ()))
 
   equal suite "event listeners are not rendered" "<button class=\"b\">ok</button>" $
-    renderHtml (button [onClick (), A.className "b"] [text "ok"])
+    renderHtml (H.button [onClick (), A.className "b"] [H.text "ok"])
   equal suite "false boolean attributes are omitted" "<input>" $
-    renderHtml (input [A.disabled False, A.checked False])
+    renderHtml (H.input [A.disabled False, A.checked False])
 
   equal suite "the last duplicate attribute wins" "<div id=\"x\" class=\"b\"></div>" $
-    renderHtml (div [A.className "a", A.id_ "x", A.className "b"] [])
+    renderHtml (H.div [A.className "a", A.id_ "x", A.className "b"] [])
   equal suite "a later false turns a boolean attribute off" "<input>" $
-    renderHtml (input [A.disabled True, A.disabled False])
+    renderHtml (H.input [A.disabled True, A.disabled False])
   equal suite "attributes keep their order" "<a href=\"/\" target=\"_blank\" rel=\"noopener\"></a>" $
-    renderHtml (a [A.href "/", A.target "_blank", A.rel "noopener"] [])
+    renderHtml (H.a [A.href "/", A.target "_blank", A.rel "noopener"] [])
 
   equal
     suite
@@ -158,10 +157,10 @@ renderTests suite = do
     "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Hi</title></head>\
     \<body><main><h1>Hi</h1><ul><li>a</li><li>b</li></ul></main></body></html>"
     $ renderDocument
-    $ html
+    $ H.html
       [A.lang "en"]
-      [ head [] [meta [A.charset "utf-8"], title [] [text "Hi"]]
-      , body [] [main_ [] [h1 [] [text "Hi"], ul [] [li [] [text "a"], li [] [text "b"]]]]
+      [ H.head [] [H.meta [A.charset "utf-8"], H.title [] [H.text "Hi"]]
+      , H.body [] [H.main_ [] [H.h1 [] [H.text "Hi"], H.ul [] [H.li [] [H.text "a"], H.li [] [H.text "b"]]]]
       ]
 
   equal suite "escapeText" "&amp;&lt;&gt;\"'" (escapeText "&<>\"'")
@@ -181,8 +180,8 @@ eventTests suite = do
   -- and produce its message whatever the event object looks like.
   mapM_
     ( \(event, handler) -> do
-        equal suite ("event name of " <> event) (plain event) (names (div [handler Clicked] []))
-        equal suite ("message of " <> event) [Right Clicked] (fire event Null (div [handler Clicked] []))
+        equal suite ("event name of " <> event) (plain event) (names (H.div [handler Clicked] []))
+        equal suite ("message of " <> event) [Right Clicked] (fire event Null (H.div [handler Clicked] []))
     )
     [ ("click", onClick)
     , ("dblclick", onDoubleClick)
@@ -227,8 +226,8 @@ eventTests suite = do
   -- Handlers that must prevent the browser's default action.
   mapM_
     ( \(event, handler) -> do
-        equal suite (event <> " prevents default") (preventing event) (names (div [handler Clicked] []))
-        equal suite ("message of " <> event) [Right Clicked] (fire event Null (div [handler Clicked] []))
+        equal suite (event <> " prevents default") (preventing event) (names (H.div [handler Clicked] []))
+        equal suite ("message of " <> event) [Right Clicked] (fire event Null (H.div [handler Clicked] []))
     )
     [("submit", onSubmit), ("dragover", onDragOver), ("drop", onDrop)]
 
@@ -237,32 +236,32 @@ eventTests suite = do
       keyEvent k = obj [("key", StringValue k)]
 
   equal suite "onInput reads target.value" [Right (Typed "hello")] $
-    fire "input" (inputEvent "hello") (input [onInput Typed])
+    fire "input" (inputEvent "hello") (H.input [onInput Typed])
   equal suite "onChange reads target.value" [Right (Typed "x")] $
-    fire "change" (inputEvent "x") (select [onChange Typed] [])
+    fire "change" (inputEvent "x") (H.select [onChange Typed] [])
   equal suite "onCheck reads target.checked" [Right (Checked True)] $
-    fire "change" (checkEvent True) (input [onCheck Checked])
+    fire "change" (checkEvent True) (H.input [onCheck Checked])
   equal suite "onKeyDown reads key" [Right (Key "Enter")] $
-    fire "keydown" (keyEvent "Enter") (input [onKeyDown Key])
+    fire "keydown" (keyEvent "Enter") (H.input [onKeyDown Key])
   equal suite "onKeyUp reads key" [Right (Key "a")] $
-    fire "keyup" (keyEvent "a") (input [onKeyUp Key])
+    fire "keyup" (keyEvent "a") (H.input [onKeyUp Key])
   equal suite "onKeypress reads key" [Right (Key "b")] $
-    fire "keypress" (keyEvent "b") (input [onKeypress Key])
+    fire "keypress" (keyEvent "b") (H.input [onKeypress Key])
 
   equal suite "onInput fails without a target" [Left "expected an object with a field named \"target\""] $
-    fire "input" (obj []) (input [onInput Typed])
+    fire "input" (obj []) (H.input [onInput Typed])
   equal suite "onInput fails on a non-string value" [Left ".target.value: expected a string"] $
-    fire "input" (obj [("target", obj [("value", NumberValue 1)])]) (input [onInput Typed])
+    fire "input" (obj [("target", obj [("value", NumberValue 1)])]) (H.input [onInput Typed])
 
   equal suite "listeners only fire for their event" [] $
-    fire "keydown" (keyEvent "a") (input [onInput Typed, onClick Clicked])
+    fire "keydown" (keyEvent "a") (H.input [onInput Typed, onClick Clicked])
   equal suite "several listeners for one event all fire" [Right Clicked, Right (Key "a")] $
-    fire "x" (keyEvent "a") (div [on "x" (pure Clicked), on "x" (Key <$> key)] [])
+    fire "x" (keyEvent "a") (H.div [on "x" (pure Clicked), on "x" (Key <$> key)] [])
 
   equal suite "on uses default options" [("custom", False, False)] $
-    names (div [on "custom" (pure Clicked)] [])
+    names (H.div [on "custom" (pure Clicked)] [])
   equal suite "onWith keeps its options" [("custom", True, True)] $
-    names (div [onWith (EventOptions True True) "custom" (pure Clicked)] [])
+    names (H.div [onWith (EventOptions True True) "custom" (pure Clicked)] [])
   equal suite "defaultEventOptions" (EventOptions False False) defaultEventOptions
 
 
@@ -270,7 +269,7 @@ eventTests suite = do
 
 functorTests :: Suite -> IO ()
 functorTests suite = do
-  let inner = button [A.className "b", onClick Clicked] [span [onClick Clicked] [text "x"]]
+  let inner = H.button [A.className "b", onClick Clicked] [H.span [onClick Clicked] [H.text "x"]]
       mapped = fmap Wrapped inner
       child el = case el of
         I.Element _ _ (c : _) -> c
@@ -281,7 +280,7 @@ functorTests suite = do
     fire "click" Null (child mapped)
   equal suite "fmap keeps the structure" (renderHtml inner) (renderHtml mapped)
   equal suite "fmap on an attribute" [Right (Wrapped Clicked)] $
-    fire "click" Null (div [fmap Wrapped (onClick Clicked)] [])
+    fire "click" Null (H.div [fmap Wrapped (onClick Clicked)] [])
   equal suite "fmap leaves plain attributes alone" (describe (A.id_ "x" :: Attribute Msg)) $
     describe (fmap Wrapped (A.id_ "x"))
 
@@ -449,55 +448,55 @@ applyPatch patch dom = case (patch, dom) of
 
 
 item :: String -> Html Msg
-item name = li [] [text name]
+item name = H.li [] [H.text name]
 
 
 keyedItem :: String -> Html Msg
-keyedItem name = keyed name (item name)
+keyedItem name = H.keyed name (item name)
 
 
 -- Must be a top-level function for 'lazy' to recognise it again.
 viewNumbers :: [Int] -> Html Msg
-viewNumbers ns = ul [] [li [] [text (show n)] | n <- ns]
+viewNumbers ns = H.ul [] [H.li [] [H.text (show n)] | n <- ns]
 
 
 diffTests :: Suite -> IO ()
 diffTests suite = do
   let patchOf old new = outline (fst (diff old new))
-      list = ul []
+      list = H.ul []
 
   equal suite "identical trees need no change" "keep" $
-    patchOf (div [A.id_ "a"] [p [] [text "x"]]) (div [A.id_ "a"] [p [] [text "x"]])
-  equal suite "changed text" "update{}[text:b]" (patchOf (p [] [text "a"]) (p [] [text "b"]))
+    patchOf (H.div [A.id_ "a"] [H.p [] [H.text "x"]]) (H.div [A.id_ "a"] [H.p [] [H.text "x"]])
+  equal suite "changed text" "update{}[text:b]" (patchOf (H.p [] [H.text "a"]) (H.p [] [H.text "b"]))
   equal suite "only the changed child is touched" "update{}[keep,update{}[text:c]]" $
-    patchOf (div [] [p [] [text "a"], p [] [text "b"]]) (div [] [p [] [text "a"], p [] [text "c"]])
+    patchOf (H.div [] [H.p [] [H.text "a"], H.p [] [H.text "b"]]) (H.div [] [H.p [] [H.text "a"], H.p [] [H.text "c"]])
   equal suite "a different tag replaces the node" "replace:<span>a</span>" $
-    patchOf (p [] [text "a"]) (span [] [text "a"])
+    patchOf (H.p [] [H.text "a"]) (H.span [] [H.text "a"])
   equal suite "text replaced by an element" "update{}[replace:<b></b>]" $
-    patchOf (p [] [text "a"]) (p [] [b [] []])
+    patchOf (H.p [] [H.text "a"]) (H.p [] [H.b [] []])
 
   equal suite "changed attribute" "update{set attribute class=\"b\"}[]" $
-    patchOf (div [A.className "a", A.id_ "x"] []) (div [A.className "b", A.id_ "x"] [])
+    patchOf (H.div [A.className "a", A.id_ "x"] []) (H.div [A.className "b", A.id_ "x"] [])
   equal suite "removed attribute" "update{clear attribute class=\"a\"}[]" $
-    patchOf (div [A.className "a"] []) (div [] [])
+    patchOf (H.div [A.className "a"] []) (H.div [] [])
   equal suite "added attribute" "update{set attribute class=\"a\"}[]" $
-    patchOf (div [] []) (div [A.className "a"] [])
+    patchOf (H.div [] []) (H.div [A.className "a"] [])
   equal suite "boolean attribute turned off" "update{clear boolean attribute disabled=True}[]" $
-    patchOf (button [A.disabled True] []) (button [A.disabled False] [])
+    patchOf (H.button [A.disabled True] []) (H.button [A.disabled False] [])
   equal suite "boolean attribute staying off" "keep" $
-    patchOf (button [A.disabled False] []) (button [] [])
+    patchOf (H.button [A.disabled False] []) (H.button [] [])
   equal suite "only the last duplicate counts" "keep" $
-    patchOf (div [A.className "b"] []) (div [A.className "a", A.className "b"] [])
+    patchOf (H.div [A.className "b"] []) (H.div [A.className "a", A.className "b"] [])
   -- The user may have typed since the last render.
   equal suite "properties are always set again" "update{set property value=PropertyString \"a\"}[]" $
-    patchOf (input [A.value "a"]) (input [A.value "a"])
+    patchOf (H.input [A.value "a"]) (H.input [A.value "a"])
   equal suite "removed property" "update{clear property checked=PropertyBool True}[]" $
-    patchOf (input [A.checked True]) (input [])
+    patchOf (H.input [A.checked True]) (H.input [])
 
   equal suite "new listeners are announced" "update{listen click}[]" $
-    patchOf (button [] []) (button [onClick Clicked] [])
+    patchOf (H.button [] []) (H.button [onClick Clicked] [])
   equal suite "existing listeners are not announced again" "keep" $
-    patchOf (button [onClick Clicked] []) (button [onClick (Wrapped Clicked)] [])
+    patchOf (H.button [onClick Clicked] []) (H.button [onClick (Wrapped Clicked)] [])
 
   equal suite "appended child" "update{}<0:keep,new:<li>b</li>>" $
     patchOf (list [item "a"]) (list [item "a", item "b"])
@@ -515,7 +514,7 @@ diffTests suite = do
   equal suite "keyed child inserted at the front" "update{}<new:<li>z</li>,0:keep,1:keep>" $
     patchOf (list [keyedItem "a", keyedItem "b"]) (list [keyedItem "z", keyedItem "a", keyedItem "b"])
   equal suite "a keyed child is still updated" "update{}[update{}[text:new]]" $
-    patchOf (list [keyed "a" (item "old")]) (list [keyed "a" (item "new")])
+    patchOf (list [H.keyed "a" (item "old")]) (list [H.keyed "a" (item "new")])
   equal suite "keyed and unkeyed children mix" "update{}<0:keep,2:keep,1:keep>" $
     patchOf (list [item "x", keyedItem "a", item "y"]) (list [item "x", item "y", keyedItem "a"])
   equal suite "a duplicate key creates a new node" "update{}<0:keep,new:<li>a</li>>" $
@@ -524,30 +523,30 @@ diffTests suite = do
   -- Fragments
   let ab = [item "a", item "b"]
   equal suite "a fragment renders as its children" "<ul><li>a</li><li>b</li><li>c</li></ul>" $
-    renderHtml (list [fragment ab, item "c"])
-  equal suite "an empty fragment renders as nothing" "<ul></ul>" (renderHtml (list [fragment []] :: Html Msg))
+    renderHtml (list [H.fragment ab, item "c"])
+  equal suite "an empty fragment renders as nothing" "<ul></ul>" (renderHtml (list [H.fragment []] :: Html Msg))
   equal suite "a fragment is the same as its children in place" "keep" $
-    patchOf (list (ab <> [item "c"])) (list [fragment ab, item "c"])
+    patchOf (list (ab <> [item "c"])) (list [H.fragment ab, item "c"])
   equal suite "fragments within fragments" "keep" $
-    patchOf (list (ab <> [item "c"])) (list [fragment [fragment [item "a"], item "b"], fragment [], item "c"])
+    patchOf (list (ab <> [item "c"])) (list [H.fragment [H.fragment [item "a"], item "b"], H.fragment [], item "c"])
   -- Without keys, children are matched by position, fragment or not.
   equal suite "a fragment that grows shifts what follows" "update{}<0:keep,1:update{}[text:b],new:<li>c</li>>" $
-    patchOf (list [fragment [item "a"], item "c"]) (list [fragment ab, item "c"])
+    patchOf (list [H.fragment [item "a"], item "c"]) (list [H.fragment ab, item "c"])
   equal suite "unless what follows has a key" "update{}<0:keep,new:<li>b</li>,1:keep>" $
-    patchOf (list [fragment [item "a"], keyedItem "c"]) (list [fragment ab, keyedItem "c"])
+    patchOf (list [H.fragment [item "a"], keyedItem "c"]) (list [H.fragment ab, keyedItem "c"])
   equal suite "the page for a fragment" (build (list (ab <> [item "c"]))) $
-    applyPatch (fst (diff (list [item "c"]) (list [fragment ab, item "c"]))) (build (list [item "c"]))
+    applyPatch (fst (diff (list [item "c"]) (list [H.fragment ab, item "c"]))) (build (list [item "c"]))
   equal suite "a keyed fragment moves as a whole" "update{}<2:keep,0:keep,1:keep>" $
-    patchOf (list [keyed "f" (fragment ab), keyedItem "c"]) (list [keyedItem "c", keyed "f" (fragment ab)])
+    patchOf (list [H.keyed "f" (H.fragment ab), keyedItem "c"]) (list [keyedItem "c", H.keyed "f" (H.fragment ab)])
   equal suite "fmap reaches into fragments" [Right (Wrapped Clicked)] $
-    fire "click" Null (unwrapFirst (fmap Wrapped (fragment [button [onClick Clicked] []])))
+    fire "click" Null (unwrapFirst (fmap Wrapped (H.fragment [H.button [onClick Clicked] []])))
 
   -- Finding failures before touching the page
-  let failing = div [] [p [] [text ("a" <> error "this view fails")]] :: Html Msg
+  let failing = H.div [] [H.p [] [H.text ("a" <> error "this view fails")]] :: Html Msg
       forced patch = either (const "failed") (const "fine") <$> (try (evaluate (force patch)) :: IO (Either SomeException ()))
-  equal suite "force finds a failing view in a new node" "failed" =<< forced (fst (diff (text "x") failing))
-  equal suite "force finds a failing view in a changed text" "failed" =<< forced (fst (diff (div [] [p [] [text "a"]]) failing))
-  equal suite "force accepts a view that is fine" "fine" =<< forced (fst (diff (text "x") (div [] [p [] [text "a"]] :: Html Msg)))
+  equal suite "force finds a failing view in a new node" "failed" =<< forced (fst (diff (H.text "x") failing))
+  equal suite "force finds a failing view in a changed text" "failed" =<< forced (fst (diff (H.div [] [H.p [] [H.text "a"]]) failing))
+  equal suite "force accepts a view that is fine" "fine" =<< forced (fst (diff (H.text "x") (H.div [] [H.p [] [H.text "a"]] :: Html Msg)))
 
   -- Lazy nodes
   let numbers = [1, 2, 3] :: [Int]
@@ -555,24 +554,24 @@ diffTests suite = do
       refsOf tree = case tree of
         I.Lazy refs _ -> refs
         _ -> []
-      old = lazy viewNumbers numbers
+      old = H.lazy viewNumbers numbers
       -- The same function and argument as 'old', but its tree must never be
       -- looked at.
       untouchable = I.Lazy (refsOf old) (error "a skipped lazy tree was evaluated")
   equal suite "lazy renders like the function it wraps" (renderHtml (viewNumbers numbers)) $
-    renderHtml (lazy viewNumbers numbers)
+    renderHtml (H.lazy viewNumbers numbers)
   equal suite "lazy with the same argument is skipped unevaluated" "keep" (patchOf old untouchable)
   equal suite "a skipped lazy tree is carried over from the old tree" (renderHtml old) $
     renderHtml (snd (diff old untouchable))
   equal suite "force does not look at a skipped lazy tree" "fine" =<< forced (fst (diff old untouchable))
   equal suite "lazy below an unchanged parent" "keep" $
-    patchOf (div [] [old, text "a"]) (div [] [untouchable, text "a"])
+    patchOf (H.div [] [old, H.text "a"]) (H.div [] [untouchable, H.text "a"])
   equal suite "keyed lazy with the same argument is skipped" "keep" $
-    patchOf (list [keyed "k" old]) (list [keyed "k" untouchable])
+    patchOf (list [H.keyed "k" old]) (list [H.keyed "k" untouchable])
   equal suite "lazy with another argument is diffed" True $
-    patchOf old (lazy viewNumbers [1, 2, 4]) /= "keep"
+    patchOf old (H.lazy viewNumbers [1, 2, 4]) /= "keep"
   equal suite "lazy with an equal but separate argument still gives the right page" (build old) $
-    applyPatch (fst (diff old (lazy viewNumbers others))) (build old)
+    applyPatch (fst (diff old (H.lazy viewNumbers others))) (build old)
   equal suite "sameRefs: same values" True $
     I.sameRefs [I.Ref viewNumbers, I.Ref numbers] [I.Ref viewNumbers, I.Ref numbers]
   equal suite "sameRefs: different lengths" False $
@@ -583,8 +582,8 @@ diffTests suite = do
     -- constructor can be a separate function in memory.
     let wrap = Wrapped in patchOf (fmap wrap old) (fmap wrap untouchable)
   equal suite "lazy2 and lazy3 render like their functions" "<p>ab</p><p>abc</p>" $
-    renderHtml (lazy2 (\x y -> p [] [text (x <> y)]) "a" "b" :: Html ())
-      <> renderHtml (lazy3 (\x y z -> p [] [text (x <> y <> z)]) "a" "b" "c" :: Html ())
+    renderHtml (H.lazy2 (\x y -> H.p [] [H.text (x <> y)]) "a" "b" :: Html ())
+      <> renderHtml (H.lazy3 (\x y z -> H.p [] [H.text (x <> y <> z)]) "a" "b" "c" :: Html ())
 
   -- Random trees: whatever the two trees are, the patch must turn the page
   -- for the first into the page for the second.
@@ -645,13 +644,13 @@ pick bound seed = ((next `quot` 65536) `mod` bound, next)
 
 randomTree :: Int -> Int -> (Html Msg, Int)
 randomTree depth seed0
-  | depth == 0 || kind == 0 = (text (["a", "b", ""] !! choice), seed2)
+  | depth == 0 || kind == 0 = (H.text (["a", "b", ""] !! choice), seed2)
   | otherwise =
       let (attributeCount, seed3) = pick 4 seed2
           (attributes, seed4) = times attributeCount randomAttribute seed3
           (childCount, seed5) = pick 5 seed4
           (children, seed6) = times childCount randomChild seed5
-       in (node (["div", "p", "ul"] !! choice) attributes children, seed6)
+       in (H.node (["div", "p", "ul"] !! choice) attributes children, seed6)
  where
   (kind, seed1) = pick 4 seed0
   (choice, seed2) = pick 3 seed1
@@ -659,7 +658,7 @@ randomTree depth seed0
   randomChild seed =
     let (child, seed') = randomTree (depth - 1) seed
         (wrapper, seed'') = pick 6 seed'
-     in (if wrapper < 3 then keyed (["k1", "k2", "k3"] !! wrapper) child else child, seed'')
+     in (if wrapper < 3 then H.keyed (["k1", "k2", "k3"] !! wrapper) child else child, seed'')
 
 
 randomAttribute :: Int -> (Attribute Msg, Int)

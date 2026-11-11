@@ -48,4 +48,4 @@ Two things stand out, and both point at work done outside the DOM:
 - **Selecting a row takes 58 ms although only two rows change.** Every render goes over all 1,000 rows again to find that out: the tree is expanded, the children are matched by key, and each `lazy` row is compared with the last one.
 - **The cost grows faster than the number of rows.** Creating 10,000 rows takes 28 times as long as creating 1,000, and appending 1,000 rows to 1,000 takes twice as long as creating 1,000. When children are added, removed or moved, the code that carries out the patch looks rows up by position in a linked list, which is quadratic.
 
-These are readings of the code, not profiles. The performance section of the [roadmap](../ROADMAP.org) lists the suspects.
+These are readings of the code, not profiles. The performance section of the [roadmap](../ROADMAP.md) lists the suspects.

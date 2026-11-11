@@ -14,7 +14,7 @@ maintainer:      emiflake
 category:        Web
 build-type:      Simple
 tested-with:     GHC ==9.14.1
-extra-doc-files: README.org
+extra-doc-files: README.md
 
 source-repository head
   type:     git

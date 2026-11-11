@@ -22,7 +22,7 @@ import Data.IORef
 import Data.List (intercalate)
 import System.Exit (exitFailure)
 
-import Hastea.Html
+import Hastea.Html (Attribute, Html)
 import Hastea.Html.Decode (Decoder, Value (..), decodeValue)
 import Hastea.Html.Diff
 import Hastea.Html.Events (EventOptions)
