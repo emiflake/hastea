@@ -3,38 +3,39 @@
 
 React hands the component the DOM node (a ref) and the event handler calls
 @focus()@ on it. Here the view never sees DOM nodes: the input gets an id,
-and 'update' returns a command that names it.
+and @update@ asks for a command that names it.
 -}
 module ReactComparison.Focus
-  ( Msg
-  , update
-  , view
+  ( focusForm
   )
 where
 
 import Prelude hiding (div)
 
-import Hastea.Cmd (Cmd)
+import Hastea.Component
 import Hastea.Dom qualified as Dom
 import Hastea.Html
 import Hastea.Html.Attributes (id_)
 import Hastea.Html.Events (onClick)
+import Hastea.Sub qualified as Sub
 
 
 data Msg = FocusPressed
 
 
-update :: Msg -> Cmd Msg
-update FocusPressed = Dom.focus inputId
-
-
-view :: Html Msg
-view =
-  div
-    []
-    [ input [id_ inputId]
-    , button [onClick FocusPressed] [text "Focus the input"]
-    ]
+focusForm :: Component () () Msg out
+focusForm =
+  Component
+    { initial = \() -> ()
+    , update = \FocusPressed () -> ((), [Run (Dom.focus inputId)])
+    , view = \() () ->
+        div
+          []
+          [ input [id_ inputId]
+          , button [onClick FocusPressed] [text "Focus the input"]
+          ]
+    , subscriptions = const Sub.none
+    }
 
 
 inputId :: String

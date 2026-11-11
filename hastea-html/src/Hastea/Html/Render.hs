@@ -30,6 +30,7 @@ render :: Html msg -> ShowS
 render (Text content) = showString (escapeText content)
 render (Lazy _ tree) = render tree
 render (Keyed _ tree) = render tree
+render (Embed mount) = render (static mount :: Html ())
 render (Element tag attributes children)
   | tag `elem` voidElements = open
   | tag `elem` rawTextElements = open . rawChildren . close

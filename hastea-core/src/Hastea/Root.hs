@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 {- | A place on the page that shows a view and reports what the user does
 with it.
@@ -19,6 +18,10 @@ root listens for each kind of event once. When an event arrives, the root
 works out where its target is, looks up the same position in the tree it
 last rendered, and runs the handlers it finds there and on the ancestors.
 Handlers are therefore always those of the latest view.
+
+The root also keeps the state of the components in the view
+("Hastea.Component"). When a component changes its state, the root shows
+the last tree it was given again, by itself.
 -}
 module Hastea.Root
   ( Root
@@ -30,22 +33,36 @@ where
 import Control.Monad
 import Data.IORef
 
+import Hastea.Cmd (runCmd)
+import Hastea.Component.Internal
 import Hastea.Decode (runDecode)
 import Hastea.Html.Diff (diff)
 import Hastea.Html.Internal
 import Hastea.Internal.Commit
 import Hastea.Internal.Foreign.DOM (DOMNode)
 import Hastea.Internal.Foreign.DOM qualified as DOM
+import Hastea.Internal.Foreign.Types (JSFunction)
+import Hastea.Internal.Sub (Manager, newManager, sync)
 
 
 -- | A mounted view that produces messages of type @msg@.
 data Root msg = Root
   { container :: DOMNode
-  , current :: IORef (Maybe (Html msg))
-  -- ^ The tree that is on the page.
+  , dispatch :: msg -> IO ()
+  , given :: IORef (Maybe (Html msg))
+  -- ^ The tree that was last asked for.
+  , current :: IORef (Maybe (Html (Routed msg)))
+  -- ^ The tree that is on the page: the one asked for, with each component
+  -- replaced by its view.
+  , components :: IORef (Store msg)
+  -- ^ The state of the components in the tree.
+  , subscriptions :: Manager (Routed msg)
+  -- ^ The running subscriptions of the components.
   , listening :: IORef [String]
   -- ^ The events the container already listens for.
-  , dispatch :: msg -> IO ()
+  , refreshScheduled :: IORef Bool
+  , onFrame :: JSFunction
+  -- ^ Shows the tree again, after a component has changed.
   }
 
 
@@ -60,14 +77,39 @@ mount elementId dispatch =
   DOM.getElementById elementId >>= \case
     Nothing -> ioError (userError ("Hastea: there is no element with id " <> show elementId))
     Just container -> do
+      given <- newIORef Nothing
       current <- newIORef Nothing
+      components <- newIORef emptyStore
+      subscriptions <- newManager
       listening <- newIORef []
-      pure Root{container, current, listening, dispatch}
+      refreshScheduled <- newIORef False
+      -- The callback needs the root, which needs the callback.
+      refresh <- newIORef (pure ())
+      onFrame <- DOM.newCallback (join (readIORef refresh))
+      let root =
+            Root
+              { container
+              , dispatch
+              , given
+              , current
+              , components
+              , subscriptions
+              , listening
+              , refreshScheduled
+              , onFrame
+              }
+      writeIORef refresh $ do
+        writeIORef refreshScheduled False
+        readIORef given >>= mapM_ (render root)
+      pure root
 
 
 -- | Show a tree, changing as little of the page as possible.
 render :: Root msg -> Html msg -> IO ()
-render root new =
+render root tree = do
+  writeIORef root.given (Just tree)
+  (new, store) <- expand tree <$> readIORef root.components
+  writeIORef root.components store
   readIORef root.current >>= \case
     Nothing -> do
       DOM.removeAllChildren root.container
@@ -77,6 +119,25 @@ render root new =
       let (patch, new') = diff old new
       DOM.childAt root.container 0 >>= mapM_ (\node -> commit (listen root) node patch)
       writeIORef root.current (Just new')
+  sync (route root) root.subscriptions (subscriptionsOf store)
+
+
+-- Pass a message on: out of the root, or to the component it is for.
+route :: Root msg -> Routed msg -> IO ()
+route root = \case
+  Out msg -> root.dispatch msg
+  Local path msg -> do
+    store <- readIORef root.components
+    -- A message for a component that is gone is dropped.
+    forM_ (deliver path msg store) $ \(store', cmd) -> do
+      writeIORef root.components store'
+      -- The component may want other subscriptions in its new state.
+      sync (route root) root.subscriptions (subscriptionsOf store')
+      scheduled <- readIORef root.refreshScheduled
+      unless scheduled $ do
+        writeIORef root.refreshScheduled True
+        DOM.requestAnimationFrame root.onFrame
+      runCmd (route root) cmd
 
 
 -- Make sure the container listens for an event.
@@ -104,7 +165,7 @@ handle root event val = do
     forM_ handlers $ \(options, decoder) -> do
       when options.preventDefault (DOM.preventDefault val)
       -- A handler whose decoder fails does not apply to this event.
-      mapM_ root.dispatch (runDecode decoder val)
+      mapM_ (route root) (runDecode decoder val)
     unless (any (\(options, _) -> options.stopPropagation) handlers) (run outer)
 
 

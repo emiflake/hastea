@@ -12,6 +12,10 @@ module Hastea.Html.Internal
   , Ref (..)
   , sameRefs
   , unwrap
+  , Mount (..)
+  , Embedded (..)
+  , Effect (..)
+  , static
   , Attribute (..)
   , PropertyValue (..)
   , EventOptions (..)
@@ -20,10 +24,15 @@ module Hastea.Html.Internal
   )
 where
 
+import Data.Bifunctor (second)
+import Data.Maybe (mapMaybe)
+import Data.Typeable (Typeable)
 import GHC.Exts (isTrue#, reallyUnsafePtrEquality#)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Hastea.Cmd (Cmd)
 import Hastea.Html.Decode (Decoder)
+import Hastea.Sub (Sub)
 
 
 -- | A tree of HTML that can produce messages of type @msg@.
@@ -41,6 +50,10 @@ data Html msg
     rather than rebuilt when a list is reordered. See 'Hastea.Html.keyed'.
     -}
     Keyed String (Html msg)
+  | {- | A component with state of its own, which is kept by whatever shows
+    the tree. See "Hastea.Component".
+    -}
+    Embed (Mount msg)
   deriving (Show)
 
 
@@ -51,13 +64,81 @@ instance Functor Html where
   -- The mapped subtree also depends on the mapping function.
   fmap f (Lazy refs tree) = Lazy (Ref f : refs) (fmap f tree)
   fmap f (Keyed key tree) = Keyed key (fmap f tree)
+  -- Only what the component tells its surroundings is mapped: its own
+  -- messages stay inside.
+  fmap f (Embed (Mount embedded)) =
+    Embed . Mount $
+      Embedded
+        { initial = embedded.initial
+        , view = embedded.view
+        , update = \msg state -> second (map (fmap f)) (embedded.update msg state)
+        , subscriptions = embedded.subscriptions
+        }
 
 
--- | The element or text node inside any 'Lazy' and 'Keyed' wrappers.
+{- | The element or text node inside any 'Lazy' and 'Keyed' wrappers. A
+component that has not been given a state is shown as in 'static'.
+-}
 unwrap :: Html msg -> Html msg
 unwrap (Lazy _ tree) = unwrap tree
 unwrap (Keyed _ tree) = unwrap tree
+unwrap (Embed mount) = unwrap (static mount)
 unwrap tree = tree
+
+
+-- | A component placed in a tree, with its state and message types hidden.
+data Mount msg
+  = forall state inner. (Typeable state, Typeable inner) => Mount (Embedded state inner msg)
+
+
+instance Show (Mount msg) where
+  show _ = "<component>"
+
+
+{- | A component as it sits in a tree of messages @msg@: its own state is
+@state@ and its own messages are @inner@.
+-}
+data Embedded state inner msg = Embedded
+  { initial :: state
+  -- ^ The state to start with.
+  , view :: state -> Html inner
+  , update :: inner -> state -> (state, [Effect inner msg])
+  , subscriptions :: state -> Sub inner
+  }
+
+
+-- | Something a component's @update@ asks for besides a new state.
+data Effect msg out
+  = -- | Run a command. Its messages come back to the component.
+    Run (Cmd msg)
+  | -- | Tell whoever uses the component that something happened.
+    Emit out
+
+
+instance Functor (Effect msg) where
+  fmap _ (Run cmd) = Run cmd
+  fmap f (Emit out) = Emit (f out)
+
+
+{- | What a component looks like in its initial state, without its event
+handlers. This is how a component appears where nothing keeps its state,
+such as in "Hastea.Html.Render".
+-}
+static :: Mount a -> Html b
+static (Mount embedded) = inert (embedded.view embedded.initial)
+ where
+  inert :: Html c -> Html d
+  inert (Element tag attributes children) = Element tag (mapMaybe plain attributes) (map inert children)
+  inert (Text content) = Text content
+  inert (Lazy _ tree) = inert tree
+  inert (Keyed key tree) = Keyed key (inert tree)
+  inert (Embed mount) = static mount
+
+  plain :: Attribute c -> Maybe (Attribute d)
+  plain (Attribute key value) = Just (Attribute key value)
+  plain (BoolAttribute key value) = Just (BoolAttribute key value)
+  plain (Property key value) = Just (Property key value)
+  plain Listener{} = Nothing
 
 
 -- | A reference to a value of any type, compared by identity.

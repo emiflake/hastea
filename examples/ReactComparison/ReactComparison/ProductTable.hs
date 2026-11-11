@@ -2,11 +2,9 @@
 <https://react.dev/learn/thinking-in-react>
 -}
 module ReactComparison.ProductTable
-  ( Model
-  , Msg
-  , initial
-  , update
-  , view
+  ( Product (..)
+  , products
+  , filterableProductTable
   )
 where
 
@@ -15,9 +13,11 @@ import Prelude hiding (div, span)
 import Data.Char (toLower)
 import Data.List (isInfixOf)
 
+import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (checked, colSpan, placeholder, styles, type_, value)
 import Hastea.Html.Events (onCheck, onInput)
+import Hastea.Sub qualified as Sub
 
 
 data Product = Product
@@ -50,23 +50,22 @@ data Msg
   | InStockOnlyChanged Bool
 
 
-initial :: Model
-initial = Model{filterText = "", inStockOnly = False}
-
-
-update :: Msg -> Model -> Model
-update msg model = case msg of
-  FilterTextChanged newText -> model{filterText = newText}
-  InStockOnlyChanged only -> model{inStockOnly = only}
-
-
-view :: Model -> Html Msg
-view model =
-  div
-    []
-    [ searchBar model
-    , productTable products model
-    ]
+-- | The products to show are props; what to filter them by is state.
+filterableProductTable :: Component [Product] Model Msg out
+filterableProductTable =
+  Component
+    { initial = \_ -> Model{filterText = "", inStockOnly = False}
+    , update = \msg model -> case msg of
+        FilterTextChanged newText -> (model{filterText = newText}, [])
+        InStockOnlyChanged only -> (model{inStockOnly = only}, [])
+    , view = \allProducts model ->
+        div
+          []
+          [ searchBar model
+          , productTable allProducts model
+          ]
+    , subscriptions = const Sub.none
+    }
 
 
 searchBar :: Model -> Html Msg

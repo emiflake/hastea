@@ -4,14 +4,10 @@
 The React handler is an @async@ function that sets state, awaits the
 request, then sets state again. Here that is two messages: 'Submitted'
 starts the request with a command, and 'Answered' arrives when it is done.
-What the form looks like in between is whatever 'view' makes of the model.
+What the form looks like in between is whatever the view makes of the model.
 -}
 module ReactComparison.Quiz
-  ( Model
-  , Msg
-  , initial
-  , update
-  , view
+  ( quiz
   )
 where
 
@@ -20,10 +16,11 @@ import Prelude hiding (div)
 import Data.Char (toLower)
 
 import Hastea.Cmd (Cmd)
-import Hastea.Cmd qualified as Cmd
+import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (className, disabled, value)
 import Hastea.Html.Events (onInput, onSubmit)
+import Hastea.Sub qualified as Sub
 import Hastea.Time qualified as Time
 
 
@@ -44,16 +41,18 @@ data Msg
   | Answered (Either String ())
 
 
-initial :: Model
-initial = Model{answer = "", problem = Nothing, status = Typing}
-
-
-update :: Msg -> Model -> (Model, Cmd Msg)
-update msg model = case msg of
-  AnswerChanged newAnswer -> (model{answer = newAnswer}, Cmd.none)
-  Submitted -> (model{status = Submitting}, submitForm model.answer)
-  Answered (Right ()) -> (model{status = Success}, Cmd.none)
-  Answered (Left message) -> (model{status = Typing, problem = Just message}, Cmd.none)
+quiz :: Component () Model Msg out
+quiz =
+  Component
+    { initial = \() -> Model{answer = "", problem = Nothing, status = Typing}
+    , update = \msg model -> case msg of
+        AnswerChanged newAnswer -> (model{answer = newAnswer}, [])
+        Submitted -> (model{status = Submitting}, [Run (submitForm model.answer)])
+        Answered (Right ()) -> (model{status = Success}, [])
+        Answered (Left message) -> (model{status = Typing, problem = Just message}, [])
+    , view = \() -> viewQuiz
+    , subscriptions = const Sub.none
+    }
 
 
 -- | Pretend it's hitting the network.
@@ -65,8 +64,8 @@ submitForm given = Time.after 1500 (Answered result)
     | otherwise = Left "Good guess but a wrong answer. Try again!"
 
 
-view :: Model -> Html Msg
-view model
+viewQuiz :: Model -> Html Msg
+viewQuiz model
   | model.status == Success = h1 [] [text "That's right!"]
   | otherwise =
       div

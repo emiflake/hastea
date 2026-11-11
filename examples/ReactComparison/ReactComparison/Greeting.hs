@@ -6,11 +6,7 @@ the same for a function and its arguments. React has to trust that the
 component is pure; here the type of 'greeting' guarantees it.
 -}
 module ReactComparison.Greeting
-  ( Model
-  , Msg
-  , initial
-  , update
-  , view
+  ( greetingForm
   )
 where
 
@@ -18,9 +14,11 @@ import Prelude hiding (div)
 
 import Debug.Trace (trace)
 
+import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (value)
 import Hastea.Html.Events (onInput)
+import Hastea.Sub qualified as Sub
 
 
 data Model = Model
@@ -34,26 +32,24 @@ data Msg
   | AddressChanged String
 
 
-initial :: Model
-initial = Model{name = "", address = ""}
-
-
-update :: Msg -> Model -> Model
-update msg model = case msg of
-  NameChanged newName -> model{name = newName}
-  AddressChanged newAddress -> model{address = newAddress}
-
-
-view :: Model -> Html Msg
-view model =
-  div
-    []
-    [ label [] [text "Name: ", input [value model.name, onInput NameChanged]]
-    , label [] [text "Address: ", input [value model.address, onInput AddressChanged]]
-    , -- Typing an address leaves the name untouched, so the greeting is
-      -- neither computed nor compared with the page.
-      lazy greeting model.name
-    ]
+greetingForm :: Component () Model Msg out
+greetingForm =
+  Component
+    { initial = \() -> Model{name = "", address = ""}
+    , update = \msg model -> case msg of
+        NameChanged newName -> (model{name = newName}, [])
+        AddressChanged newAddress -> (model{address = newAddress}, [])
+    , view = \() model ->
+        div
+          []
+          [ label [] [text "Name: ", input [value model.name, onInput NameChanged]]
+          , label [] [text "Address: ", input [value model.address, onInput AddressChanged]]
+          , -- Typing an address leaves the name untouched, so the greeting
+            -- is neither computed nor compared with the page.
+            lazy greeting model.name
+          ]
+    , subscriptions = const Sub.none
+    }
 
 
 {- | Like the React example, this reports when it is rendered (in the

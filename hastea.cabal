@@ -38,14 +38,18 @@ common wasm-only
   if !arch(wasm32)
     buildable: False
 
--- The view layer: HTML elements, attributes, events and decoders. Pure
--- Haskell with no JavaScript, so it can be rendered and tested anywhere.
+-- Everything an application is written with: HTML elements, attributes and
+-- events, decoders, components, commands and subscriptions. Pure Haskell
+-- with no JavaScript, so it can be rendered and tested anywhere.
 -- Depend on it alone with `build-depends: hastea:hastea-html`.
 library hastea-html
   import:          shared
   visibility:      public
   hs-source-dirs:  hastea-html/src
   exposed-modules:
+    Hastea.Cmd
+    Hastea.Component
+    Hastea.Component.Internal
     Hastea.Html
     Hastea.Html.Attributes
     Hastea.Html.Decode
@@ -53,6 +57,8 @@ library hastea-html
     Hastea.Html.Events
     Hastea.Html.Internal
     Hastea.Html.Render
+    Hastea.Internal.Sub
+    Hastea.Sub
 
   build-depends:
     , base        >=4.16 && <5
@@ -75,19 +81,20 @@ library
   exposed-modules:
     Hastea.App
     Hastea.Async
-    Hastea.Cmd
     Hastea.Decode
     Hastea.Dom
     Hastea.Root
-    Hastea.Sub
     Hastea.Time
 
   -- Re-export the view layer so that depending on hastea is enough to write
   -- an app.
   reexported-modules:
+    , Hastea.Cmd
+    , Hastea.Component
     , Hastea.Html
     , Hastea.Html.Attributes
     , Hastea.Html.Events
+    , Hastea.Sub
 
   other-modules:
     Hastea.Internal.Commit
@@ -95,7 +102,6 @@ library
     Hastea.Internal.Foreign.Effects
     Hastea.Internal.Foreign.FFI
     Hastea.Internal.Foreign.Types
-    Hastea.Internal.Sub
 
   build-depends:
     , base              >=4.20 && <5

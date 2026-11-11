@@ -5,7 +5,8 @@ outside the model (waiting, asking for the time, moving the focus), @update@
 returns a command describing it next to the new model. The runtime runs the
 command, and any message it produces comes back through @update@.
 
-Ready-made commands are in "Hastea.Time" and "Hastea.Dom".
+Ready-made commands are in "Hastea.Time" and "Hastea.Dom", in the @hastea@
+library.
 -}
 module Hastea.Cmd
   ( Cmd
@@ -16,17 +17,11 @@ module Hastea.Cmd
   , perform
   , effect
   , custom
-  , log
 
     -- * Running commands
   , runCmd
   )
 where
-
-import Prelude hiding (log)
-
-import Hastea.Internal.Foreign.Effects qualified as Effs
-
 
 {- | An effect that may send messages of type @msg@, now or later, any
 number of times.
@@ -75,11 +70,6 @@ from a callback.
 -}
 custom :: ((msg -> IO ()) -> IO ()) -> Cmd msg
 custom = Cmd
-
-
--- | Write a line to the browser console.
-log :: String -> Cmd msg
-log = effect . Effs.putStrLn
 
 
 -- | Carry out a command, sending its messages to the given function.

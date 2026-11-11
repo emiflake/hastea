@@ -82,6 +82,8 @@ the old tree next time.
 diff :: Html msg -> Html msg -> (Patch msg, Html msg)
 diff old new = case new of
   Keyed key inner -> second (Keyed key) (diff old inner)
+  -- Components are given their state before diffing ("Hastea.Component.Internal").
+  Embed mount -> diff old (static mount)
   Lazy refs inner
     | Lazy oldRefs _ <- withoutKey old
     , sameRefs oldRefs refs ->

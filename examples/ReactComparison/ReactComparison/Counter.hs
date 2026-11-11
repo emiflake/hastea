@@ -1,37 +1,30 @@
 {- | React: @useState@.
 <https://react.dev/reference/react/useState#counter-number>
 
-A React component keeps its own state. Here a component is a model, the
-messages that can change it, and two pure functions; whoever uses it stores
-the model.
+A React component is a function that calls @useState@. Here it is a value
+that says what the state is at first, how messages change it, and what it
+looks like.
 -}
 module ReactComparison.Counter
-  ( Model
-  , Msg
-  , initial
-  , update
-  , view
+  ( counter
   )
 where
 
+import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Events (onClick)
-
-
-type Model = Int
+import Hastea.Sub qualified as Sub
 
 
 data Msg = Pressed
 
 
-initial :: Model
-initial = 0
-
-
-update :: Msg -> Model -> Model
-update Pressed count = count + 1
-
-
-view :: Model -> Html Msg
-view count =
-  button [onClick Pressed] [text ("You pressed me " <> show count <> " times")]
+counter :: Component () Int Msg out
+counter =
+  Component
+    { initial = \() -> 0
+    , update = \Pressed count -> (count + 1, [])
+    , view = \() count ->
+        button [onClick Pressed] [text ("You pressed me " <> show count <> " times")]
+    , subscriptions = const Sub.none
+    }

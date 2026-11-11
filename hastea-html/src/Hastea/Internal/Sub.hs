@@ -4,6 +4,7 @@
 module Hastea.Internal.Sub
   ( Sub (..)
   , Source (..)
+  , prefixed
   , Manager
   , newManager
   , sync
@@ -43,6 +44,12 @@ instance Semigroup (Sub msg) where
 
 instance Monoid (Sub msg) where
   mempty = Sub []
+
+
+-- | Put a prefix before the name of every source, to tell apart the same
+-- subscription made in different places.
+prefixed :: String -> Sub msg -> Sub msg
+prefixed prefix (Sub sources) = Sub [(prefix <> name, source) | (name, source) <- sources]
 
 
 -- A source that has been started: what currently happens to its values, and
