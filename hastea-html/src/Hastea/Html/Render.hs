@@ -28,6 +28,8 @@ renderDocument tree = "<!DOCTYPE html>\n" <> renderHtml tree
 
 render :: Html msg -> ShowS
 render (Text content) = showString (escapeText content)
+render (Lazy _ tree) = render tree
+render (Keyed _ tree) = render tree
 render (Element tag attributes children)
   | tag `elem` voidElements = open
   | tag `elem` rawTextElements = open . rawChildren . close
@@ -35,7 +37,7 @@ render (Element tag attributes children)
  where
   open = showChar '<' . showString tag . renderAttributes attributes . showChar '>'
   close = showString "</" . showString tag . showChar '>'
-  rawChildren = showString (concat [content | Text content <- children])
+  rawChildren = showString (concat [content | Text content <- map unwrap children])
 
 
 renderAttributes :: [Attribute msg] -> ShowS

@@ -1,3 +1,5 @@
+{-# LANGUAGE MagicHash #-}
+
 {- | The data types behind "Hastea.Html".
 
 This module exposes the constructors of 'Html' and 'Attribute' for code that
@@ -7,6 +9,9 @@ code should build trees with the functions in "Hastea.Html",
 -}
 module Hastea.Html.Internal
   ( Html (..)
+  , Ref (..)
+  , sameRefs
+  , unwrap
   , Attribute (..)
   , PropertyValue (..)
   , EventOptions (..)
@@ -14,6 +19,9 @@ module Hastea.Html.Internal
   , attributeKey
   )
 where
+
+import GHC.Exts (isTrue#, reallyUnsafePtrEquality#)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Hastea.Html.Decode (Decoder)
 
@@ -24,6 +32,15 @@ data Html msg
     Element String [Attribute msg] [Html msg]
   | -- | A text node.
     Text String
+  | {- | A subtree that is only computed when needed. The references identify
+    what it was computed from: if they are the same as last time, so is the
+    subtree, and it is neither computed nor diffed. See 'Hastea.Html.lazy'.
+    -}
+    Lazy [Ref] (Html msg)
+  | {- | A node with an identity among its siblings, so that it is moved
+    rather than rebuilt when a list is reordered. See 'Hastea.Html.keyed'.
+    -}
+    Keyed String (Html msg)
   deriving (Show)
 
 
@@ -31,6 +48,45 @@ instance Functor Html where
   fmap f (Element tag attributes children) =
     Element tag (fmap (fmap f) attributes) (fmap (fmap f) children)
   fmap _ (Text content) = Text content
+  -- The mapped subtree also depends on the mapping function.
+  fmap f (Lazy refs tree) = Lazy (Ref f : refs) (fmap f tree)
+  fmap f (Keyed key tree) = Keyed key (fmap f tree)
+
+
+-- | The element or text node inside any 'Lazy' and 'Keyed' wrappers.
+unwrap :: Html msg -> Html msg
+unwrap (Lazy _ tree) = unwrap tree
+unwrap (Keyed _ tree) = unwrap tree
+unwrap tree = tree
+
+
+-- | A reference to a value of any type, compared by identity.
+data Ref = forall a. Ref a
+
+
+instance Show Ref where
+  show _ = "<ref>"
+
+
+{- | Whether two lists refer to the very same values in memory.
+
+Because Haskell values are immutable, the same reference always means the
+same value, so anything computed purely from one is equal to what was
+computed from the other. 'False' does not mean the values differ: it only
+means the work has to be done again.
+
+The values are evaluated to weak head normal form first, so that an
+unevaluated field access is recognised as the value it refers to.
+-}
+sameRefs :: [Ref] -> [Ref] -> Bool
+sameRefs (a : as) (b : bs) = sameRef a b && sameRefs as bs
+sameRefs [] [] = True
+sameRefs _ _ = False
+
+
+sameRef :: Ref -> Ref -> Bool
+sameRef (Ref a) (Ref b) =
+  a `seq` b `seq` isTrue# (reallyUnsafePtrEquality# a (unsafeCoerce b))
 
 
 -- | Something attached to an element: an attribute, a property or an event listener.

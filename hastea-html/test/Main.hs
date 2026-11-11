@@ -5,13 +5,14 @@ import Prelude hiding (div, head, span)
 import Control.Applicative ((<|>))
 import Control.Monad (unless)
 import Data.IORef
-import Data.List (nub, (\\))
+import Data.List (intercalate, nub, sortOn, (\\))
 import System.Exit (exitFailure)
 
 import Hastea.Html
 import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Decode (Decoder, Value (..), decodeValue)
 import Hastea.Html.Decode qualified as D
+import Hastea.Html.Diff
 import Hastea.Html.Events
 import Hastea.Html.Internal qualified as I
 import Hastea.Html.Render
@@ -50,6 +51,7 @@ main = do
     , eventTests
     , functorTests
     , decodeTests
+    , diffTests
     ]
   (total, failures) <- readIORef suite
   mapM_ (putStrLn . ("FAIL: " <>)) (reverse failures)
@@ -66,8 +68,9 @@ obj = ObjectValue
 
 -- | The listeners on an element, as (event name, options, decoder).
 listeners :: Html msg -> [(String, EventOptions, Decoder msg)]
-listeners (I.Element _ attributes _) = [(e, o, d) | I.Listener e o d <- attributes]
-listeners (I.Text _) = []
+listeners el = case I.unwrap el of
+  I.Element _ attributes _ -> [(e, o, d) | I.Listener e o d <- attributes]
+  _ -> []
 
 
 {- | Simulate the browser firing an event on an element: the messages
@@ -420,3 +423,315 @@ decodeTests suite = do
   equal suite "andThen can fail" (Left "unknown shape blob") $
     run shape (obj [("type", StringValue "blob")])
   equal suite "failWith" (Left "nope") (run (D.failWith "nope" :: Decoder ()) Null)
+
+
+-- DIFFING
+--
+-- 'diff' is checked against a small model of the DOM: applying the patch to
+-- the page built from the old tree must give the page built from the new one.
+
+-- | A DOM node: its attributes and properties are kept sorted by name.
+data Dom
+  = DomText String
+  | DomElement String [(String, String)] [(String, I.PropertyValue)] [Dom]
+  deriving (Eq, Show)
+
+
+-- | What the browser builds for a tree.
+build :: Html msg -> Dom
+build tree = case I.unwrap tree of
+  I.Element tag attributes children ->
+    foldl (flip setOn) (DomElement tag [] [] (map build children)) attributes
+  I.Text content -> DomText content
+  _ -> DomText ""
+
+
+setOn :: Attribute msg -> Dom -> Dom
+setOn attribute dom = case (attribute, dom) of
+  (I.Attribute k v, DomElement t as ps cs) -> DomElement t (put k v as) ps cs
+  (I.BoolAttribute k True, DomElement t as ps cs) -> DomElement t (put k "" as) ps cs
+  (I.BoolAttribute k False, DomElement t as ps cs) -> DomElement t (without k as) ps cs
+  (I.Property k v, DomElement t as ps cs) -> DomElement t as (putProperty k v ps) cs
+  _ -> dom
+
+
+clearOn :: Attribute msg -> Dom -> Dom
+clearOn attribute dom = case (attribute, dom) of
+  (I.Attribute k _, DomElement t as ps cs) -> DomElement t (without k as) ps cs
+  (I.BoolAttribute k _, DomElement t as ps cs) -> DomElement t (without k as) ps cs
+  (I.Property k _, DomElement t as ps cs) -> DomElement t as (without k ps) cs
+  _ -> dom
+
+
+put :: Ord k => k -> v -> [(k, v)] -> [(k, v)]
+put k v kvs = sortOn fst ((k, v) : without k kvs)
+
+
+without :: Eq k => k -> [(k, v)] -> [(k, v)]
+without k = filter ((/= k) . fst)
+
+
+-- A property that is empty or false is the same as one that was never set.
+putProperty :: String -> I.PropertyValue -> [(String, I.PropertyValue)] -> [(String, I.PropertyValue)]
+putProperty k v ps
+  | v `elem` [I.PropertyString "", I.PropertyBool False] = without k ps
+  | otherwise = put k v ps
+
+
+-- | Carry out a patch on the model, the way "Hastea.Internal.Commit" does on the page.
+applyPatch :: Patch msg -> Dom -> Dom
+applyPatch patch dom = case (patch, dom) of
+  (Keep, _) -> dom
+  (Replace tree, _) -> build tree
+  (SetText content, DomText _) -> DomText content
+  (Update changes children, DomElement{}) ->
+    case foldl (flip change) dom changes of
+      DomElement t as ps cs -> DomElement t as ps (applyChildren children cs)
+      other -> other
+  _ -> error ("patch does not fit the node: " <> show patch)
+ where
+  change (Set attribute) = setOn attribute
+  change (Clear attribute) = clearOn attribute
+  change (Listen _) = id
+
+  applyChildren (InPlace patches) cs
+    | length patches == length cs = zipWith applyPatch patches cs
+    | otherwise = error "InPlace with the wrong number of children"
+  applyChildren (Rearrange ops) cs
+    | reused /= nub reused = error "a DOM node cannot be in two places"
+    | otherwise = rearranged
+   where
+    reused = [index | Reuse index _ <- ops]
+    rearranged = rearrange ops cs
+
+  rearrange ops cs =
+    [ case op of
+        Reuse index childPatch -> applyPatch childPatch (cs !! index)
+        Create tree -> build tree
+    | op <- ops
+    ]
+
+
+-- | The outline of a patch, for comparing with what is expected.
+outline :: Patch msg -> String
+outline patch = case patch of
+  Keep -> "keep"
+  Replace tree -> "replace:" <> renderHtml tree
+  SetText content -> "text:" <> content
+  Update changes children ->
+    "update{" <> intercalate "," (map changeOutline changes) <> "}" <> childrenOutline children
+ where
+  changeOutline (Set attribute) = "set " <> describe attribute
+  changeOutline (Clear attribute) = "clear " <> describe attribute
+  changeOutline (Listen event) = "listen " <> event
+
+  childrenOutline (InPlace patches) = "[" <> intercalate "," (map outline patches) <> "]"
+  childrenOutline (Rearrange ops) = "<" <> intercalate "," (map opOutline ops) <> ">"
+
+  opOutline (Reuse index childPatch) = show index <> ":" <> outline childPatch
+  opOutline (Create tree) = "new:" <> renderHtml tree
+
+
+item :: String -> Html Msg
+item name = li [] [text name]
+
+
+keyedItem :: String -> Html Msg
+keyedItem name = keyed name (item name)
+
+
+-- Must be a top-level function for 'lazy' to recognise it again.
+viewNumbers :: [Int] -> Html Msg
+viewNumbers ns = ul [] [li [] [text (show n)] | n <- ns]
+
+
+diffTests :: Suite -> IO ()
+diffTests suite = do
+  let patchOf old new = outline (fst (diff old new))
+      list = ul []
+
+  equal suite "identical trees need no change" "keep" $
+    patchOf (div [A.id_ "a"] [p [] [text "x"]]) (div [A.id_ "a"] [p [] [text "x"]])
+  equal suite "changed text" "update{}[text:b]" (patchOf (p [] [text "a"]) (p [] [text "b"]))
+  equal suite "only the changed child is touched" "update{}[keep,update{}[text:c]]" $
+    patchOf (div [] [p [] [text "a"], p [] [text "b"]]) (div [] [p [] [text "a"], p [] [text "c"]])
+  equal suite "a different tag replaces the node" "replace:<span>a</span>" $
+    patchOf (p [] [text "a"]) (span [] [text "a"])
+  equal suite "text replaced by an element" "update{}[replace:<b></b>]" $
+    patchOf (p [] [text "a"]) (p [] [b [] []])
+
+  equal suite "changed attribute" "update{set attribute class=\"b\"}[]" $
+    patchOf (div [A.className "a", A.id_ "x"] []) (div [A.className "b", A.id_ "x"] [])
+  equal suite "removed attribute" "update{clear attribute class=\"a\"}[]" $
+    patchOf (div [A.className "a"] []) (div [] [])
+  equal suite "added attribute" "update{set attribute class=\"a\"}[]" $
+    patchOf (div [] []) (div [A.className "a"] [])
+  equal suite "boolean attribute turned off" "update{clear boolean attribute disabled=True}[]" $
+    patchOf (button [A.disabled True] []) (button [A.disabled False] [])
+  equal suite "boolean attribute staying off" "keep" $
+    patchOf (button [A.disabled False] []) (button [] [])
+  equal suite "only the last duplicate counts" "keep" $
+    patchOf (div [A.className "b"] []) (div [A.className "a", A.className "b"] [])
+  -- The user may have typed since the last render.
+  equal suite "properties are always set again" "update{set property value=PropertyString \"a\"}[]" $
+    patchOf (input [A.value "a"]) (input [A.value "a"])
+  equal suite "removed property" "update{clear property checked=PropertyBool True}[]" $
+    patchOf (input [A.checked True]) (input [])
+
+  equal suite "new listeners are announced" "update{listen click}[]" $
+    patchOf (button [] []) (button [onClick Clicked] [])
+  equal suite "existing listeners are not announced again" "keep" $
+    patchOf (button [onClick Clicked] []) (button [onClick (Wrapped Clicked)] [])
+
+  equal suite "appended child" "update{}<0:keep,new:<li>b</li>>" $
+    patchOf (list [item "a"]) (list [item "a", item "b"])
+  equal suite "removed last child" "update{}<0:keep>" $
+    patchOf (list [item "a", item "b"]) (list [item "a"])
+  equal suite "without keys, children are matched by position" "update{}<0:update{}[text:b]>" $
+    patchOf (list [item "a", item "b"]) (list [item "b"])
+
+  equal suite "with keys, a removed child leaves the others alone" "update{}<1:keep>" $
+    patchOf (list [keyedItem "a", keyedItem "b"]) (list [keyedItem "b"])
+  equal suite "keyed children are moved, not rebuilt" "update{}<2:keep,0:keep,1:keep>" $
+    patchOf
+      (list [keyedItem "a", keyedItem "b", keyedItem "c"])
+      (list [keyedItem "c", keyedItem "a", keyedItem "b"])
+  equal suite "keyed child inserted at the front" "update{}<new:<li>z</li>,0:keep,1:keep>" $
+    patchOf (list [keyedItem "a", keyedItem "b"]) (list [keyedItem "z", keyedItem "a", keyedItem "b"])
+  equal suite "a keyed child is still updated" "update{}[update{}[text:new]]" $
+    patchOf (list [keyed "a" (item "old")]) (list [keyed "a" (item "new")])
+  equal suite "keyed and unkeyed children mix" "update{}<0:keep,2:keep,1:keep>" $
+    patchOf (list [item "x", keyedItem "a", item "y"]) (list [item "x", item "y", keyedItem "a"])
+  equal suite "a duplicate key creates a new node" "update{}<0:keep,new:<li>a</li>>" $
+    patchOf (list [keyedItem "a"]) (list [keyedItem "a", keyedItem "a"])
+
+  -- Lazy nodes
+  let numbers = [1, 2, 3] :: [Int]
+      others = [1, 2, 3] :: [Int]
+      refsOf tree = case tree of
+        I.Lazy refs _ -> refs
+        _ -> []
+      old = lazy viewNumbers numbers
+      -- The same function and argument as 'old', but its tree must never be
+      -- looked at.
+      untouchable = I.Lazy (refsOf old) (error "a skipped lazy tree was evaluated")
+  equal suite "lazy renders like the function it wraps" (renderHtml (viewNumbers numbers)) $
+    renderHtml (lazy viewNumbers numbers)
+  equal suite "lazy with the same argument is skipped unevaluated" "keep" (patchOf old untouchable)
+  equal suite "a skipped lazy tree is carried over from the old tree" (renderHtml old) $
+    renderHtml (snd (diff old untouchable))
+  equal suite "lazy below an unchanged parent" "keep" $
+    patchOf (div [] [old, text "a"]) (div [] [untouchable, text "a"])
+  equal suite "keyed lazy with the same argument is skipped" "keep" $
+    patchOf (list [keyed "k" old]) (list [keyed "k" untouchable])
+  equal suite "lazy with another argument is diffed" True $
+    patchOf old (lazy viewNumbers [1, 2, 4]) /= "keep"
+  equal suite "lazy with an equal but separate argument still gives the right page" (build old) $
+    applyPatch (fst (diff old (lazy viewNumbers others))) (build old)
+  equal suite "sameRefs: same values" True $
+    I.sameRefs [I.Ref viewNumbers, I.Ref numbers] [I.Ref viewNumbers, I.Ref numbers]
+  equal suite "sameRefs: different lengths" False $
+    I.sameRefs [I.Ref numbers] [I.Ref numbers, I.Ref numbers]
+  equal suite "sameRefs: different values" False (I.sameRefs [I.Ref numbers] [I.Ref "abc"])
+  equal suite "fmap over lazy with the same function is skipped" "keep" $
+    patchOf (fmap Wrapped old) (fmap Wrapped untouchable)
+  equal suite "lazy2 and lazy3 render like their functions" "<p>ab</p><p>abc</p>" $
+    renderHtml (lazy2 (\x y -> p [] [text (x <> y)]) "a" "b" :: Html ())
+      <> renderHtml (lazy3 (\x y z -> p [] [text (x <> y <> z)]) "a" "b" "c" :: Html ())
+
+  -- Random trees: whatever the two trees are, the patch must turn the page
+  -- for the first into the page for the second.
+  let trees = randomTrees 600
+      pairs = zip trees (drop 1 trees)
+      wrong =
+        [ (renderHtml from, renderHtml to)
+        | (from, to) <- pairs
+        , applyPatch (fst (diff from to)) (build from) /= build to
+        ]
+      wrongTrees = [renderHtml to | (from, to) <- pairs, build (snd (diff from to)) /= build to]
+      -- Properties are always set again, and of two siblings with the same
+      -- key only one can be reused.
+      plain = [tree | tree <- trees, hasNoProperty tree, hasUniqueKeys tree]
+      notKept = [renderHtml tree | tree <- plain, patchOf tree tree /= "keep"]
+  equal suite "random trees: the patch gives the new page" [] (take 3 wrong)
+  equal suite "random trees: the resulting tree is the new tree" [] (take 3 wrongTrees)
+  equal suite "random trees: a tree does not differ from itself" [] (take 3 notKept)
+  equal suite "random trees are varied" True (length (nub (map renderHtml trees)) > 300)
+  equal suite "random trees: enough of them can be compared with themselves" True (length plain > 100)
+
+
+hasNoProperty :: Html msg -> Bool
+hasNoProperty tree = case I.unwrap tree of
+  I.Element _ attributes children ->
+    null [() | I.Property{} <- attributes] && all hasNoProperty children
+  _ -> True
+
+
+hasUniqueKeys :: Html msg -> Bool
+hasUniqueKeys tree = case I.unwrap tree of
+  I.Element _ _ children ->
+    let keys = [k | I.Keyed k _ <- children]
+     in keys == nub keys && all hasUniqueKeys children
+  _ -> True
+
+
+-- | Trees drawn from a small vocabulary, so that neighbours in the list have
+-- a lot in common, generated from a fixed seed.
+randomTrees :: Int -> [Html Msg]
+randomTrees count = take count (go 20240607)
+ where
+  go seed = let (tree, seed') = randomTree 3 seed in tree : go seed'
+
+
+-- A linear congruential generator: a number below the bound, and the next seed.
+pick :: Int -> Int -> (Int, Int)
+pick bound seed = ((next `quot` 65536) `mod` bound, next)
+ where
+  -- Via Integer: Int has only 32 bits on wasm.
+  next = fromInteger ((toInteger seed * 1103515245 + 12345) `mod` 2147483648)
+
+
+randomTree :: Int -> Int -> (Html Msg, Int)
+randomTree depth seed0
+  | depth == 0 || kind == 0 = (text (["a", "b", ""] !! choice), seed2)
+  | otherwise =
+      let (attributeCount, seed3) = pick 4 seed2
+          (attributes, seed4) = times attributeCount randomAttribute seed3
+          (childCount, seed5) = pick 5 seed4
+          (children, seed6) = times childCount randomChild seed5
+       in (node (["div", "p", "ul"] !! choice) attributes children, seed6)
+ where
+  (kind, seed1) = pick 4 seed0
+  (choice, seed2) = pick 3 seed1
+
+  randomChild seed =
+    let (child, seed') = randomTree (depth - 1) seed
+        (wrapper, seed'') = pick 6 seed'
+     in (if wrapper < 3 then keyed (["k1", "k2", "k3"] !! wrapper) child else child, seed'')
+
+
+randomAttribute :: Int -> (Attribute Msg, Int)
+randomAttribute seed0 = (attributes !! which, seed1)
+ where
+  (which, seed1) = pick (length attributes) seed0
+  attributes =
+    [ A.className "a"
+    , A.className "b"
+    , A.id_ "x"
+    , A.disabled True
+    , A.disabled False
+    , A.value "v"
+    , A.value "w"
+    , A.checked True
+    , A.checked False
+    , A.attrib "value" "attr"
+    , onClick Clicked
+    ]
+
+
+times :: Int -> (Int -> (a, Int)) -> Int -> ([a], Int)
+times 0 _ seed = ([], seed)
+times n step seed =
+  let (x, seed') = step seed
+      (xs, seed'') = times (n - 1) step seed'
+   in (x : xs, seed'')

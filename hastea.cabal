@@ -40,11 +40,14 @@ library hastea-html
     Hastea.Html
     Hastea.Html.Attributes
     Hastea.Html.Decode
+    Hastea.Html.Diff
     Hastea.Html.Events
     Hastea.Html.Internal
     Hastea.Html.Render
 
-  build-depends:   base >=4.16 && <5
+  build-depends:
+    , base        >=4.16 && <5
+    , containers  >=0.6 && <0.9
 
 test-suite hastea-html-test
   import:         shared
@@ -65,6 +68,7 @@ library
     Hastea.Async
     Hastea.Cmd
     Hastea.Decode
+    Hastea.Root
 
   -- Re-export the view layer so that depending on hastea is enough to write
   -- an app.
@@ -74,11 +78,11 @@ library
     , Hastea.Html.Events
 
   other-modules:
+    Hastea.Internal.Commit
     Hastea.Internal.Foreign.DOM
     Hastea.Internal.Foreign.Effects
     Hastea.Internal.Foreign.FFI
     Hastea.Internal.Foreign.Types
-    Hastea.Internal.VirtualDOM
 
   build-depends:
     , base              >=4.20 && <5

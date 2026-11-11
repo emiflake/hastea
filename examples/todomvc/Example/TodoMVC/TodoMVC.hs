@@ -188,7 +188,9 @@ view model =
                   , checked (Todos.allCompleted . mTodos $ model)
                   ]
               , label [for "toggle-all"] []
-              , Todos.viewTodos (mFilter model) TodosUpdate (mTodos model)
+              , -- Typing in the entry field changes neither the filter nor
+                -- the todos, so the list is then skipped entirely.
+                lazy3 Todos.viewTodos (mFilter model) TodosUpdate (mTodos model)
               ]
           ]
             <> (viewFooter model)

@@ -1,46 +1,48 @@
+{- | Applications in the style of The Elm Architecture: a model, a function
+that updates it in response to messages, and a view of it.
+-}
 module Hastea.App
   ( runApp
   )
 where
 
+import Control.Monad
 import Data.IORef
+
 import Hastea.Cmd
 import Hastea.Html
-import Hastea.Internal.Foreign.DOM
-import Hastea.Internal.Foreign.Effects qualified as Effects
-import Hastea.Internal.VirtualDOM
+import Hastea.Internal.Foreign.DOM qualified as DOM
+import Hastea.Root
 
 
--- RUN THE APP
+{- | Run an application in the element with id @main-node@.
 
-runApp ::
-  (Show s, Show msg) => -- Temporary for debugging
-  (msg -> s -> (s, Cmd msg)) -> s -> (s -> Html msg) -> IO ()
+The model only changes through @update@, in response to the messages
+produced by the view's event handlers and by commands. The view is shown
+again after the model has changed, at most once per frame: when several
+messages arrive in quick succession, only the latest model is rendered.
+-}
+runApp :: (msg -> s -> (s, Cmd msg)) -> s -> (s -> Html msg) -> IO ()
 runApp update initial view = do
-  mainNode <- getElementById "main-node"
-  msgRef <- newIORef []
+  model <- newIORef initial
+  renderScheduled <- newIORef False
+  -- Filled in once the root exists; the root in turn needs 'dispatch'.
+  scheduleRender <- newIORef (pure ())
 
-  let collapseState = foldr (\acc v -> fst (update acc v)) initial
+  let dispatch msg = do
+        (new, cmd) <- update msg <$> readIORef model
+        new `seq` writeIORef model new
+        scheduled <- readIORef renderScheduled
+        unless scheduled $ do
+          writeIORef renderScheduled True
+          join (readIORef scheduleRender)
+        runCmd cmd >>= mapM_ dispatch
 
-  let render oldDOM = do
-        let handleEvent evtMsg = do
-              modifyIORef msgRef (evtMsg :)
-              msgs <- readIORef msgRef
-              let latest = collapseState msgs
-              let previous = collapseState (drop 1 msgs)
-              let cmd = snd $ update evtMsg previous
-              maybeMsg <- runCmd cmd
-              Effects.putStrLn ("Got message: " <> show evtMsg)
-              -- Effects.putStrLn ("now, latest state:" <> show latest)
-              case maybeMsg of
-                Just msg ->
-                  handleEvent msg
-                Nothing ->
-                  requestAnimationFrame $
-                    patch handleEvent mainNode (Just (view previous)) (Just (view latest))
+  root <- mount "main-node" dispatch
+  let renderNow = do
+        writeIORef renderScheduled False
+        readIORef model >>= render root . view
 
-        msgs <- readIORef msgRef
-        let latest = collapseState msgs
-        patch handleEvent mainNode oldDOM (Just (view latest))
-
-  render Nothing
+  onFrame <- DOM.newCallback renderNow
+  writeIORef scheduleRender (DOM.requestAnimationFrame onFrame)
+  renderNow

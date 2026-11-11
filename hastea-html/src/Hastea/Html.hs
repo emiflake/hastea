@@ -31,6 +31,12 @@ module Hastea.Html
   , text
   , node
 
+    -- * Performance
+  , keyed
+  , lazy
+  , lazy2
+  , lazy3
+
     -- * Document
   , html
   , head
@@ -167,7 +173,7 @@ where
 
 import Prelude hiding (div, head, span)
 
-import Hastea.Html.Internal (Attribute, Html (..))
+import Hastea.Html.Internal (Attribute, Html (..), Ref (..))
 
 
 -- | A text node. The text is escaped when rendered.
@@ -180,6 +186,53 @@ cover, such as custom elements.
 -}
 node :: String -> [Attribute msg] -> [Html msg] -> Html msg
 node = Element
+
+
+{- | Give a node an identity among its siblings.
+
+When a list of children changes, a keyed child is matched with the previous
+child of the same key, wherever that was. Its DOM node is kept and moved, so
+it retains its state (focus, scroll position, a playing video) and is not
+rebuilt. Without keys, children are matched by position. Keys must be unique
+among siblings.
+
+@
+ul [] [keyed (show (todoId todo)) (viewTodo todo) | todo <- todos]
+@
+-}
+keyed :: String -> Html msg -> Html msg
+keyed = Keyed
+
+
+{- | Put off building a subtree until it is needed, and skip it altogether
+when nothing it depends on has changed.
+
+@lazy view model@ is the same tree as @view model@. But when the page is
+rendered again and both @view@ and @model@ are the very same values as last
+time, the subtree is known to be unchanged, because @view@ is pure: it is
+not computed and not compared with the page.
+
+"The very same value" means the same object in memory, not an equal one.
+So pass a top-level function rather than a lambda or a partial application
+(use 'lazy2' and 'lazy3' for more arguments), and pass parts of your model as
+they are rather than values rebuilt on each render. Getting this wrong is
+harmless: the subtree is then simply rendered as usual.
+
+The arguments are evaluated to weak head normal form when compared. To give
+a lazy node a key, apply 'keyed' on the outside.
+-}
+lazy :: (a -> Html msg) -> a -> Html msg
+lazy view x = Lazy [Ref view, Ref x] (view x)
+
+
+-- | 'lazy' for a function of two arguments.
+lazy2 :: (a -> b -> Html msg) -> a -> b -> Html msg
+lazy2 view x y = Lazy [Ref view, Ref x, Ref y] (view x y)
+
+
+-- | 'lazy' for a function of three arguments.
+lazy3 :: (a -> b -> c -> Html msg) -> a -> b -> c -> Html msg
+lazy3 view x y z = Lazy [Ref view, Ref x, Ref y, Ref z] (view x y z)
 
 
 -- An element that cannot have children.

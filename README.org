@@ -42,6 +42,17 @@
 
   Some names exist both as an element and as an attribute (~title~, ~style~, ~form~, ~label~, ...), so import ~Hastea.Html.Attributes~ qualified or with an import list.
 
+* How rendering works
+  The design follows React, and leans on purity where Haskell allows more.
+
+  - *Rendering is split into a pure and an effectful half.* ~Hastea.Html.Diff.diff~ compares the tree on the page with the new one and returns a ~Patch~: a description of what to change. Only ~Hastea.Internal.Commit~ touches the DOM, by carrying the patch out. The pure half is tested without a browser.
+  - *Event handlers are data, not DOM listeners.* Nothing is attached to the elements of a view. The root listens for each kind of event once; when one arrives it locates the target in the tree it last rendered and runs the handlers found there and on its ancestors. Handlers can therefore never be out of date, and changing one costs nothing.
+  - *Renders are batched.* Messages update the model immediately, but the view is shown at most once per frame.
+  - *~keyed~* gives a child an identity, so that reordering or filtering a list moves DOM nodes instead of rebuilding them.
+  - *~lazy~* skips a subtree whose inputs are the same values in memory as last time. Because views are pure this is always safe, and the skipped view is not even computed.
+
+  ~Hastea.App.runApp~ is the Elm-style loop (model, update, view). It is a thin layer over ~Hastea.Root~ (~mount~ and ~render~), which only shows trees and reports messages, and can serve as the base for other architectures.
+
 * Building
 ** Get the wasm toolchain
    You need the ~wasm32-wasi-ghc~ cross-compiler and ~cabal~ from [[https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta][ghc-wasm-meta]]. Either:
@@ -90,5 +101,4 @@
 
 * TODOs
   - Benchmark
-  - Diff event handlers in the virtual DOM
   - Rework the ~Cmd~ system

@@ -20,7 +20,7 @@ where
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Hastea.Html
-import Hastea.Html.Attributes (className, type_)
+import Hastea.Html.Attributes (checked, className, type_)
 import Hastea.Html.Events
 import Prelude hiding (div, span)
 
@@ -148,6 +148,7 @@ viewTodo toggle todo =
         [ input
             [ className "toggle"
             , type_ "checkbox"
+            , checked (todoCompleted todo)
             , onClick toggle
             ]
         , label [] [text (todoLabel todo)]
@@ -167,7 +168,9 @@ viewTodos :: Filter -> ((Todos -> Todos) -> msg) -> Todos -> Html msg
 viewTodos currentFilter updateTodos todos =
   ul
     [className "todo-list"]
-    [ viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todo
+    [ -- The key ties each item to its DOM node, whatever the filter shows.
+      keyed (show (unTodoId todoId)) $
+        viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todo
     | (todoId, todo) <- Map.assocs (todosMap todos)
     , shouldView currentFilter todo
     ]
