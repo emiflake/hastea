@@ -1,45 +1,26 @@
-{-# LANGUAGE FlexibleInstances #-}
+{- | Run the decoders of "Hastea.Html.Decode" against JavaScript values.
 
+This module re-exports "Hastea.Html.Decode", so it is all you need to import
+to both build and run decoders.
+-}
 module Hastea.Decode
-  ( Decode
+  ( module Hastea.Html.Decode
+  , Decode
   , runDecode
 
-    -- * Decoders
-  , string
-  , number
-  , list
-  , field
+    -- * Inspecting JavaScript values
   , truthy
   , notNull
   , isNull
   )
 where
 
-import Data.Coerce
+import Hastea.Html.Decode
 import Hastea.Internal.Foreign.Types
 
 
--- TODO: improve error messages
-
-newtype Decode' e a
-  = Decode {runDecode :: JSVal -> Either e a}
-
-
-type Decode = Decode' String
-
-
-instance Show (Decode' e a) where
-  show _ = "Decode{...}"
-
-
-instance Functor (Decode' String) where
-  fmap f (Decode g) =
-    Decode $ fmap f . g
-
-
-instance Applicative (Decode' String) where
-  pure x = Decode . const . Right $ x
-  fd <*> ad = Decode $ \vf -> liftA2 ($) (runDecode fd vf) (runDecode ad vf)
+-- | The former name of 'Decoder'.
+type Decode = Decoder
 
 
 -- FFI type-checking
@@ -49,16 +30,18 @@ instance Applicative (Decode' String) where
 
 foreign import javascript unsafe "typeof ($1) == 'string'" ffi_isString :: JSVal -> Bool
 foreign import javascript unsafe "typeof ($1) == 'number'" ffi_isNumber :: JSVal -> Bool
+foreign import javascript unsafe "typeof ($1) == 'boolean'" ffi_isBoolean :: JSVal -> Bool
 foreign import javascript unsafe "($1) instanceof Array" ffi_isArray :: JSVal -> Bool
 foreign import javascript unsafe "$1 instanceof Object" ffi_isObject :: JSVal -> Bool
-foreign import javascript unsafe "$1 in $2" ffi_keyIsIn :: JSVal -> JSObject -> Bool
-foreign import javascript unsafe "$1[$2]" ffi_keyGet :: JSObject -> JSString -> JSVal
+foreign import javascript unsafe "$1 in $2" ffi_keyIsIn :: JSString -> JSVal -> Bool
+foreign import javascript unsafe "$1[$2]" ffi_keyGet :: JSVal -> JSString -> JSVal
 
 
 -- Loose equality on purpose: also treats `undefined` as null
 -- (e.g. `childNodes[i]` past the end).
 foreign import javascript unsafe "($1) == null" ffi_isNull :: JSVal -> Bool
 foreign import javascript unsafe "$1" ffi_toNumber :: JSVal -> Double
+foreign import javascript unsafe "$1" ffi_toString :: JSVal -> JSString
 foreign import javascript unsafe "!!($1)" ffi_truthy :: JSVal -> Bool
 
 
@@ -76,35 +59,26 @@ truthy :: JSVal -> Bool
 truthy = ffi_truthy
 
 
--- Primitives
-
-string :: Decode String
-string =
-  Decode $ \val ->
-    if ffi_isString val
-      then Right (fromJSString (coerce val))
-      else Left "was not string"
+-- | Run a decoder against a JavaScript value.
+runDecode :: Decoder a -> JSVal -> Either String a
+runDecode = decodeWith jsSource
 
 
-number :: Decode Double
-number =
-  Decode $ \val ->
-    if ffi_isNumber val
-      then Right (ffi_toNumber val)
-      else Left "was not number"
-
-
-list :: Decode a -> Decode [a]
-list decoder =
-  Decode $ \val ->
-    if ffi_isArray val
-      then traverse (runDecode decoder) (fromJSArray (coerce val))
-      else Left "was not array"
-
-
-field :: String -> Decode a -> Decode a
-field key decoder =
-  Decode $ \val ->
-    if ffi_isObject val && (coerce $ toJSString key) `ffi_keyIsIn` (coerce val)
-      then runDecode decoder . coerce $ (coerce val) `ffi_keyGet` (coerce $ toJSString key)
-      else Left "was not object, or object didn't have key"
+jsSource :: Source JSVal
+jsSource =
+  Source
+    { sourceString = \val ->
+        if ffi_isString val then Just (fromJSString (ffi_toString val)) else Nothing
+    , sourceNumber = \val ->
+        if ffi_isNumber val then Just (ffi_toNumber val) else Nothing
+    , sourceBool = \val ->
+        if ffi_isBoolean val then Just (ffi_truthy val) else Nothing
+    , sourceIsNull = ffi_isNull
+    , sourceList = \val ->
+        if ffi_isArray val then Just (fromJSArray (JSArray val)) else Nothing
+    , sourceField = \key val ->
+        let jsKey = toJSString key
+         in if ffi_isObject val && jsKey `ffi_keyIsIn` val
+              then Just (val `ffi_keyGet` jsKey)
+              else Nothing
+    }

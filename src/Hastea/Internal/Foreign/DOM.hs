@@ -7,7 +7,8 @@ module Hastea.Internal.Foreign.DOM
   , createElement
   , createTextNode
   , setAttribute
-  , setValue
+  , setProperty
+  , setBoolProperty
   , removeAttribute
   , addEventListener
   , removeEventListener
@@ -19,11 +20,13 @@ module Hastea.Internal.Foreign.DOM
   , childCount
   , replaceChild
   , requestAnimationFrame
+  , preventDefault
+  , stopPropagation
   )
 where
 
 import Data.Coerce
-import Hastea.Decode
+import Hastea.Decode (notNull)
 import Hastea.Internal.Foreign.FFI
 import Hastea.Internal.Foreign.Types
 
@@ -33,7 +36,13 @@ foreign import javascript unsafe "document.getElementById($1)"
 foreign import javascript unsafe "($1).innerHTML = $2" ffi_setInnerHTML :: JSVal -> JSVal -> IO ()
 foreign import javascript unsafe "($1).setAttribute($2, $3)"
   ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
-foreign import javascript unsafe "($1).value = ($2)" ffi_setValue :: JSVal -> JSString -> IO ()
+foreign import javascript unsafe "($1)[$2] = ($3)"
+  ffi_setProperty :: JSVal -> JSString -> JSString -> IO ()
+
+
+-- `!!` because a Haskell Bool may arrive in JavaScript as a number.
+foreign import javascript unsafe "($1)[$2] = !!($3)"
+  ffi_setBoolProperty :: JSVal -> JSString -> Bool -> IO ()
 foreign import javascript unsafe "($1).removeAttribute($2)"
   ffi_removeAttribute :: JSVal -> JSString -> IO ()
 foreign import javascript unsafe "document.createElement($1)"
@@ -54,6 +63,8 @@ foreign import javascript unsafe "($1).replaceChild($2, $3)"
   ffi_replaceChild :: JSVal -> JSVal -> JSVal -> IO ()
 foreign import javascript unsafe "window.requestAnimationFrame($1)"
   ffi_requestAnimationFrame :: JSFunction -> IO ()
+foreign import javascript unsafe "($1).preventDefault()" ffi_preventDefault :: JSVal -> IO ()
+foreign import javascript unsafe "($1).stopPropagation()" ffi_stopPropagation :: JSVal -> IO ()
 
 
 -- FFI Wrappers
@@ -135,9 +146,26 @@ setAttribute node attrKey attrValue =
   ffi_setAttribute (coerce node) (toJSString attrKey) (toJSString attrValue)
 
 
-setValue :: DOMNode -> String -> IO ()
-setValue node value =
-  ffi_setValue (coerce node) (toJSString value)
+-- | Assign a string to a property of a node, e.g. @node.value = "..."@.
+setProperty :: DOMNode -> String -> String -> IO ()
+setProperty node key value =
+  ffi_setProperty (coerce node) (toJSString key) (toJSString value)
+
+
+-- | Assign a boolean to a property of a node, e.g. @node.checked = true@.
+setBoolProperty :: DOMNode -> String -> Bool -> IO ()
+setBoolProperty node key value =
+  ffi_setBoolProperty (coerce node) (toJSString key) value
+
+
+-- | Prevent the default action of an event.
+preventDefault :: JSVal -> IO ()
+preventDefault = ffi_preventDefault
+
+
+-- | Stop an event from propagating to ancestors.
+stopPropagation :: JSVal -> IO ()
+stopPropagation = ffi_stopPropagation
 
 
 removeAttribute :: DOMNode -> String -> IO ()

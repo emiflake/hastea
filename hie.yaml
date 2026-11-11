@@ -2,5 +2,9 @@ cradle:
   cabal:
     - path: "src"
       component: "lib:hastea"
+    - path: "hastea-html/src"
+      component: "lib:hastea-html"
+    - path: "hastea-html/test"
+      component: "hastea-html:test:hastea-html-test"
     - path: "examples/todomvc"
       component: "exe:hastea-todomvc"

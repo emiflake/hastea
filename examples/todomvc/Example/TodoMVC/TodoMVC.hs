@@ -11,6 +11,18 @@ import Hastea.App
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Html
+import Hastea.Html.Attributes
+  ( checked
+  , className
+  , for
+  , href
+  , id_
+  , placeholder
+  , styles
+  , type_
+  , value
+  )
+import Hastea.Html.Events
 
 import Example.TodoMVC.Todos (Todos)
 import Example.TodoMVC.Todos qualified as Todos
@@ -58,7 +70,7 @@ instance Show Msg where
     case msg of
       NoOp -> "NoOp"
       TodosUpdate _ -> "TodosUpdate { internal }"
-      TodoEntryChange s -> "TodoEntryChange " <> show s
+      TodoEntryChange entry -> "TodoEntryChange " <> show entry
       TodoEntryKeypress kp -> "TodoEntryKeypress " <> show kp
       SetFilter newFilter -> "SetFilter " <> show newFilter
       ToggleAll -> "ToggleAll"
@@ -70,8 +82,8 @@ update msg model =
   case msg of
     TodosUpdate updateTodos ->
       (model{mTodos = updateTodos (mTodos model)}, Cmd.none)
-    TodoEntryChange s ->
-      (model{mTodoEntry = s}, Cmd.none)
+    TodoEntryChange entry ->
+      (model{mTodoEntry = entry}, Cmd.none)
     TodoEntryKeypress "Enter"
       | not . null . mTodoEntry $ model ->
           (addTodo model, Cmd.none)
@@ -165,10 +177,9 @@ view model =
                   , onKeypress TodoEntryKeypress
                   , value (mTodoEntry model)
                   ]
-                  []
               ]
           , section
-              [className "main", style "display: block;"] -- Would like to have `style n v` pairs
+              [className "main", styles [("display", "block")]]
               [ input
                   [ id_ "toggle-all"
                   , className "toggle-all"
@@ -176,7 +187,6 @@ view model =
                   , onClick ToggleAll
                   , checked (Todos.allCompleted . mTodos $ model)
                   ]
-                  []
               , label [for "toggle-all"] []
               , Todos.viewTodos (mFilter model) TodosUpdate (mTodos model)
               ]

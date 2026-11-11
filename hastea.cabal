@@ -36,7 +36,13 @@ library
     Hastea.Async
     Hastea.Cmd
     Hastea.Decode
-    Hastea.Html
+
+  -- The view layer lives in hastea-html; re-export it so that depending on
+  -- hastea is enough to write an app.
+  reexported-modules:
+    , Hastea.Html
+    , Hastea.Html.Attributes
+    , Hastea.Html.Events
 
   other-modules:
     Hastea.Internal.Foreign.DOM
@@ -48,6 +54,7 @@ library
   build-depends:
     , base              >=4.20 && <5
     , ghc-experimental
+    , hastea-html       ^>=0.1.0.0
 
 executable hastea-todomvc
   import:         shared

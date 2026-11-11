@@ -20,6 +20,8 @@ where
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Hastea.Html
+import Hastea.Html.Attributes (className, type_)
+import Hastea.Html.Events
 import Prelude hiding (div, span)
 
 
@@ -148,7 +150,6 @@ viewTodo toggle todo =
             , type_ "checkbox"
             , onClick toggle
             ]
-            []
         , label [] [text (todoLabel todo)]
         ]
     ]
