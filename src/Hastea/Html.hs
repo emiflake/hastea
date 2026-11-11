@@ -1,14 +1,14 @@
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Hastea.Html
   ( Html
   , Attribute
 
-  -- * Attributes
+    -- * Attributes
   , attrib
   , on
   , node
-
   , className
   , value
   , style
@@ -19,12 +19,12 @@ module Hastea.Html
   , id_
   , checked
 
-  -- * Events
+    -- * Events
   , onClick
   , onKeypress
   , onInput
 
-  -- * Tags
+    -- * Tags
   , text
   , div
   , span
@@ -47,22 +47,20 @@ module Hastea.Html
   , header
   , label
   )
-  where
+where
 
-import           Prelude                    hiding (div, span)
+import Prelude hiding (div, span)
 
+import Hastea.Decode (Decode)
+import Hastea.Decode qualified as Decode
+import Hastea.Internal.VirtualDOM hiding (value)
 
-import           Hastea.Decode              (Decode)
-import qualified Hastea.Decode              as Decode
-import           Hastea.Internal.VirtualDOM hiding (value)
 
 type Html a = VNode a
 type Attribute a = VAttribute a
 
 
-
 -- Primitives
-
 
 attrib :: String -> String -> Attribute a
 attrib k v =
@@ -80,11 +78,11 @@ node = VNode
 
 -- Attributes
 
-
 toHTMLBool :: Bool -> String
 toHTMLBool = \case
   True -> "1"
   False -> "0"
+
 
 className :: String -> Attribute a
 className = attrib "class"
@@ -113,7 +111,7 @@ href = attrib "href"
 id_ :: String -> Attribute a
 id_ = attrib "id"
 
-  
+
 checked :: Bool -> Attribute a
 checked = attrib "checked" . toHTMLBool
 
@@ -122,9 +120,7 @@ for :: String -> Attribute a
 for = attrib "for"
 
 
-
 -- Events
-
 
 onClick :: msg -> Attribute msg
 onClick msg = on "click" (pure msg)
@@ -139,7 +135,6 @@ onInput toMsg = on "input" (toMsg <$> Decode.field "target" (Decode.field "value
 
 
 -- Tags
-
 
 text :: String -> Html a
 text = VText
@@ -174,7 +169,7 @@ h4 = node "h4"
 
 
 h5 :: [Attribute a] -> [Html a] -> Html a
-h5 = node "h4"
+h5 = node "h5"
 
 
 p :: [Attribute a] -> [Html a] -> Html a

@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+
 module Example.TodoMVC.Todos
   ( add
   , viewTodo
@@ -12,23 +13,20 @@ module Example.TodoMVC.Todos
   , toggleAll
   , Todo
   , Todos
-  , Filter(..)
+  , Filter (..)
   )
-  where
+where
 
-
-import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import Prelude hiding (div, span)
+import Data.Map.Strict qualified as Map
 import Hastea.Html
-
+import Prelude hiding (div, span)
 
 
 -- MODEL
 
-
-newtype TodoId =
-  TodoId { unTodoId :: Int }
+newtype TodoId
+  = TodoId {unTodoId :: Int}
   deriving (Show, Eq, Ord)
 
 
@@ -37,7 +35,7 @@ data Todo
   { todoLabel :: String
   , todoCompleted :: Bool
   }
-  deriving Show
+  deriving (Show)
 
 
 data Filter
@@ -49,7 +47,7 @@ data Filter
 
 todoToggle :: Todo -> Todo
 todoToggle todo@Todo{todoCompleted} =
-  todo { todoCompleted = not todoCompleted }
+  todo{todoCompleted = not todoCompleted}
 
 
 data Todos
@@ -57,40 +55,40 @@ data Todos
   { todosMap :: Map TodoId Todo
   , todosCounter :: Int
   }
-  deriving Show
+  deriving (Show)
 
 
 add :: String -> Todos -> Todos
 add todoLabel todos =
   let
     newTodo =
-      Todo { todoLabel, todoCompleted = False}
+      Todo{todoLabel, todoCompleted = False}
     freshId =
       TodoId (todosCounter todos)
-  in
+   in
     todos
-    { todosMap = Map.insert freshId newTodo (todosMap todos)
-    , todosCounter = succ $ todosCounter todos
-    }
+      { todosMap = Map.insert freshId newTodo (todosMap todos)
+      , todosCounter = succ $ todosCounter todos
+      }
 
 
 toggleTodo :: TodoId -> Todos -> Todos
 toggleTodo todoId todos =
   todos
-  { todosMap =
-      Map.adjust
-        todoToggle
-        todoId
-        (todosMap todos)
-  }
+    { todosMap =
+        Map.adjust
+          todoToggle
+          todoId
+          (todosMap todos)
+    }
 
 
 empty :: Todos
 empty =
   Todos
-  { todosMap = Map.empty
-  , todosCounter = 0
-  }
+    { todosMap = Map.empty
+    , todosCounter = 0
+    }
 
 
 isEmpty :: Todos -> Bool
@@ -106,8 +104,8 @@ count =
 clearCompleted :: Todos -> Todos
 clearCompleted todos@Todos{todosMap} =
   todos
-  { todosMap = Map.filter (not . todoCompleted) todosMap
-  }
+    { todosMap = Map.filter (not . todoCompleted) todosMap
+    }
 
 
 anyCompleted :: Todos -> Bool
@@ -123,54 +121,52 @@ allCompleted =
 toggleAll :: Todos -> Todos
 toggleAll todos =
   let
-    setAll value todos =
-      fmap (\todo -> todo { todoCompleted = value }) todos
+    setAll completed items =
+      fmap (\todo -> todo{todoCompleted = completed}) items
     newTodos =
       if not $ allCompleted todos
-      then
-        setAll True (todosMap todos)
-      else
-        setAll False (todosMap todos)
-  in
+        then
+          setAll True (todosMap todos)
+        else
+          setAll False (todosMap todos)
+   in
     todos
-    { todosMap = newTodos
-    }
-
+      { todosMap = newTodos
+      }
 
 
 -- VIEW
 
-
-viewTodo :: msg -> TodoId -> Todo -> Html msg
-viewTodo toggle todoId todo =
+viewTodo :: msg -> Todo -> Html msg
+viewTodo toggle todo =
   li
-    [ if todoCompleted todo then className "completed" else className ""]
+    [if todoCompleted todo then className "completed" else className ""]
     [ div
-      [ className "view"]
-      [ input
-          [ className "toggle"
-          , type_ "checkbox"
-          , onClick toggle
-          ]
-          []
-      , label [] [ text (todoLabel todo) ]
-      ]
+        [className "view"]
+        [ input
+            [ className "toggle"
+            , type_ "checkbox"
+            , onClick toggle
+            ]
+            []
+        , label [] [text (todoLabel todo)]
+        ]
     ]
 
 
 shouldView :: Filter -> Todo -> Bool
-shouldView filter Todo{todoCompleted} =
-  case filter of
+shouldView currentFilter Todo{todoCompleted} =
+  case currentFilter of
     Completed -> todoCompleted
     All -> True
     Active -> not todoCompleted
 
 
 viewTodos :: Filter -> ((Todos -> Todos) -> msg) -> Todos -> Html msg
-viewTodos filter updateTodos todos =
+viewTodos currentFilter updateTodos todos =
   ul
-    [ className "todo-list" ]
-    [ viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todoId todo
+    [className "todo-list"]
+    [ viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todo
     | (todoId, todo) <- Map.assocs (todosMap todos)
-    , shouldView filter todo
+    , shouldView currentFilter todo
     ]

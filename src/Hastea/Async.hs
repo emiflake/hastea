@@ -3,18 +3,21 @@ module Hastea.Async
   , defer
   , delay
   )
-  where
+where
 
-import           Control.Concurrent
-import           Hastea.Internal.Foreign.FFI   (makeHaskellCallback)
-import           Hastea.Internal.Foreign.Types
+import Control.Concurrent
+import Hastea.Internal.Foreign.FFI (makeHaskellCallback)
+import Hastea.Internal.Foreign.Types
+
 
 foreign import javascript unsafe "setTimeout($1, $2)" ffi_setTimeout :: JSFunction -> Int -> IO ()
 
+
 setTimeout :: IO () -> Int -> IO ()
-setTimeout action delay = do
+setTimeout action ms = do
   callback <- makeHaskellCallback action
-  ffi_setTimeout callback delay
+  ffi_setTimeout callback ms
+
 
 defer :: IO () -> IO ()
 defer = (`setTimeout` 0)

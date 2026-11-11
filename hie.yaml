@@ -1,0 +1,6 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:hastea"
+    - path: "examples/todomvc"
+      component: "exe:hastea-todomvc"

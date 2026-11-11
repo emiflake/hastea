@@ -1,38 +1,34 @@
 module Hastea.App
   ( runApp
   )
-  where
+where
 
-
-import           Hastea.Internal.Foreign.Types
-import           Data.IORef
-import           Hastea.Cmd
-import           Hastea.Html
-import           Hastea.Internal.Foreign.DOM
-import qualified Hastea.Internal.Foreign.Effects as Effects
-import           Hastea.Internal.VirtualDOM
-import           Control.Concurrent
+import Data.IORef
+import Hastea.Cmd
+import Hastea.Html
+import Hastea.Internal.Foreign.DOM
+import Hastea.Internal.Foreign.Effects qualified as Effects
+import Hastea.Internal.VirtualDOM
 
 
 -- RUN THE APP
 
-
 runApp ::
   (Show s, Show msg) => -- Temporary for debugging
   (msg -> s -> (s, Cmd msg)) -> s -> (s -> Html msg) -> IO ()
-runApp update init view = do
+runApp update initial view = do
   mainNode <- getElementById "main-node"
   msgRef <- newIORef []
 
-  let collapseState = foldr (\acc v -> fst (update acc v)) init
+  let collapseState = foldr (\acc v -> fst (update acc v)) initial
 
   let render oldDOM = do
         let handleEvent evtMsg = do
-              modifyIORef msgRef (evtMsg:)
+              modifyIORef msgRef (evtMsg :)
               msgs <- readIORef msgRef
               let latest = collapseState msgs
-              let last = collapseState (drop 1 msgs)
-              let cmd = snd $ update evtMsg last 
+              let previous = collapseState (drop 1 msgs)
+              let cmd = snd $ update evtMsg previous
               maybeMsg <- runCmd cmd
               Effects.putStrLn ("Got message: " <> show evtMsg)
               -- Effects.putStrLn ("now, latest state:" <> show latest)
@@ -41,7 +37,7 @@ runApp update init view = do
                   handleEvent msg
                 Nothing ->
                   requestAnimationFrame $
-                    patch handleEvent mainNode (Just (view last)) (Just (view latest))
+                    patch handleEvent mainNode (Just (view previous)) (Just (view latest))
 
         msgs <- readIORef msgRef
         let latest = collapseState msgs

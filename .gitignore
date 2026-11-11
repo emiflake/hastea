@@ -1,7 +1,6 @@
+dist
+dist-newstyle
+.hie
 *.hi
 *.o
-dist
-build
-browser
-node
 *.~undo-tree~

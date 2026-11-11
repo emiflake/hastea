@@ -1,0 +1,7 @@
+packages: .
+
+-- Hastea only builds for WebAssembly, so always use the wasm cross-compiler
+-- (from ghc-wasm-meta). This lets plain `cabal build` and HLS work without
+-- the wasm32-wasi-cabal wrapper.
+with-compiler: wasm32-wasi-ghc
+with-hc-pkg: wasm32-wasi-ghc-pkg

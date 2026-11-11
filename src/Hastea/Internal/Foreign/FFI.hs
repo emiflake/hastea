@@ -2,7 +2,7 @@ module Hastea.Internal.Foreign.FFI
   ( makeHaskellCallback
   , makeHaskellCallback1
   )
-  where
+where
 
 import Hastea.Internal.Foreign.Types
 
@@ -13,6 +13,7 @@ import Hastea.Internal.Foreign.Types
 
 foreign import javascript "wrapper sync"
   makeHaskellCallback :: IO () -> IO JSFunction
+
 
 foreign import javascript "wrapper sync"
   makeHaskellCallback1 :: (JSObject -> IO ()) -> IO JSFunction

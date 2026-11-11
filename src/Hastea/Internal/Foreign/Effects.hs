@@ -2,12 +2,11 @@ module Hastea.Internal.Foreign.Effects
   ( alert
   , putStrLn
   )
-  where
+where
 
-import           Prelude                       hiding (alert, putStrLn)
+import Prelude hiding (putStrLn)
 
-
-import           Hastea.Internal.Foreign.Types
+import Hastea.Internal.Foreign.Types
 
 
 foreign import javascript unsafe "alert($1)" ffi_alert :: JSString -> IO ()

@@ -1,0 +1,67 @@
+cabal-version:   3.4
+name:            hastea
+version:         0.1.0.0
+synopsis:        A tasty hasty Elm-Architecture web framework for GHC's WebAssembly backend
+description:
+  Hastea is a small web framework inspired by The Elm Architecture. It
+  compiles to WebAssembly with GHC's wasm backend and talks to the DOM
+  through the JavaScript FFI.
+
+homepage:        https://github.com/emiflake/hastea
+bug-reports:     https://github.com/emiflake/hastea/issues
+author:          emiflake
+maintainer:      emiflake
+category:        Web
+build-type:      Simple
+tested-with:     GHC ==9.14.1
+extra-doc-files: README.org
+
+source-repository head
+  type:     git
+  location: https://github.com/emiflake/hastea.git
+
+common shared
+  default-language: GHC2021
+  ghc-options:      -Wall -Wcompat
+
+  -- Hastea relies on the JavaScript FFI of the wasm backend.
+  if !arch(wasm32)
+    buildable: False
+
+library
+  import:          shared
+  hs-source-dirs:  src
+  exposed-modules:
+    Hastea.App
+    Hastea.Async
+    Hastea.Cmd
+    Hastea.Decode
+    Hastea.Html
+
+  other-modules:
+    Hastea.Internal.Foreign.DOM
+    Hastea.Internal.Foreign.Effects
+    Hastea.Internal.Foreign.FFI
+    Hastea.Internal.Foreign.Types
+    Hastea.Internal.VirtualDOM
+
+  build-depends:
+    , base              >=4.20 && <5
+    , ghc-experimental
+
+executable hastea-todomvc
+  import:         shared
+  hs-source-dirs: examples/todomvc
+  main-is:        Main.hs
+  other-modules:
+    Example.TodoMVC.TodoMVC
+    Example.TodoMVC.Todos
+
+  build-depends:
+    , base
+    , containers  >=0.6 && <0.9
+    , hastea
+
+  -- Link as a WASI reactor exporting the entry point called by index.js.
+  ghc-options:
+    -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"

@@ -1,24 +1,21 @@
 {-# LANGUAGE LambdaCase #-}
+
 module Hastea.Cmd
   ( Cmd
   , none
   , unsafeLiftCmd
   , runCmd
 
-
-  -- * Helper Cmds
+    -- * Helper Cmds
   , batch
   , log
   )
-  where
+where
 
-import           Control.Applicative
-import           Data.Coerce
-import           Prelude                         hiding (log)
+import Control.Applicative
+import Prelude hiding (log)
 
-
-
-{-| TODO: rework Cmd system
+{-\| TODO: rework Cmd system
 Idea: use a Monad that produces Messages, or Side effects and returns a new State
 Essentially, the state monad.
 @
@@ -28,8 +25,7 @@ newtype Cmd state msg = Cmd { runCmd :: state -> (msg, state) }
 @
 -}
 
-
-import qualified Hastea.Internal.Foreign.Effects as Effs
+import Hastea.Internal.Foreign.Effects qualified as Effs
 
 
 newtype Cmd a
@@ -38,7 +34,7 @@ newtype Cmd a
 
 instance Functor Cmd where
   fmap f (Cmd action) =
-      Cmd $ (fmap . fmap) f action
+    Cmd $ (fmap . fmap) f action
 
 
 instance Applicative Cmd where
@@ -60,7 +56,7 @@ instance Monad Cmd where
         mb <- runCmd (afb a)
         case mb of
           Nothing -> pure Nothing
-          Just v  -> pure (Just v)
+          Just v -> pure (Just v)
 
 
 unsafeLiftCmd :: IO a -> Cmd a
@@ -78,5 +74,6 @@ batch = sequence
 runCmd :: Cmd a -> IO (Maybe a)
 runCmd (Cmd a) = a
 
+
 log :: String -> Cmd a
-log = (>>none) . (unsafeLiftCmd . Effs.putStrLn)
+log = (>> none) . (unsafeLiftCmd . Effs.putStrLn)

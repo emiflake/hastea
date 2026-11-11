@@ -1,0 +1,9 @@
+indentation: 2
+column-limit: 100
+comma-style: leading
+record-style: aligned
+import-export-style: leading
+import-grouping: legacy
+newlines-between-decls: 2
+haddock-style: multi-line
+respectful: true

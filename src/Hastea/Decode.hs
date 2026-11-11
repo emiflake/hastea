@@ -1,33 +1,28 @@
 {-# LANGUAGE FlexibleInstances #-}
+
 module Hastea.Decode
   ( Decode
   , runDecode
 
-  -- * Decoders
+    -- * Decoders
   , string
   , number
   , list
   , field
-
-
   , truthy
   , notNull
   , isNull
   )
-  where
+where
 
-import           Control.Applicative
-
-import           Data.Coerce
-import           Hastea.Internal.Foreign.Types
-
+import Data.Coerce
+import Hastea.Internal.Foreign.Types
 
 
 -- TODO: improve error messages
 
-
-newtype Decode' e a =
-  Decode { runDecode :: JSVal -> Either e a }
+newtype Decode' e a
+  = Decode {runDecode :: JSVal -> Either e a}
 
 
 type Decode = Decode' String
@@ -35,6 +30,7 @@ type Decode = Decode' String
 
 instance Show (Decode' e a) where
   show _ = "Decode{...}"
+
 
 instance Functor (Decode' String) where
   fmap f (Decode g) =
@@ -46,13 +42,10 @@ instance Applicative (Decode' String) where
   fd <*> ad = Decode $ \vf -> liftA2 ($) (runDecode fd vf) (runDecode ad vf)
 
 
-
 -- FFI type-checking
-
 
 -- NOTE: This ***assumes*** that the objects are pure (i.e. doesn't return IO)
 -- This behavior is potentially dangerous.
-
 
 foreign import javascript unsafe "typeof ($1) == 'string'" ffi_isString :: JSVal -> Bool
 foreign import javascript unsafe "typeof ($1) == 'number'" ffi_isNumber :: JSVal -> Bool
@@ -60,6 +53,8 @@ foreign import javascript unsafe "($1) instanceof Array" ffi_isArray :: JSVal ->
 foreign import javascript unsafe "$1 instanceof Object" ffi_isObject :: JSVal -> Bool
 foreign import javascript unsafe "$1 in $2" ffi_keyIsIn :: JSVal -> JSObject -> Bool
 foreign import javascript unsafe "$1[$2]" ffi_keyGet :: JSObject -> JSString -> JSVal
+
+
 -- Loose equality on purpose: also treats `undefined` as null
 -- (e.g. `childNodes[i]` past the end).
 foreign import javascript unsafe "($1) == null" ffi_isNull :: JSVal -> Bool
@@ -67,9 +62,7 @@ foreign import javascript unsafe "$1" ffi_toNumber :: JSVal -> Double
 foreign import javascript unsafe "!!($1)" ffi_truthy :: JSVal -> Bool
 
 
-
 -- FFI wrappers
-
 
 notNull :: JSVal -> Bool
 notNull = not . isNull
@@ -83,37 +76,35 @@ truthy :: JSVal -> Bool
 truthy = ffi_truthy
 
 
-
 -- Primitives
-
 
 string :: Decode String
 string =
   Decode $ \val ->
     if ffi_isString val
-    then Right (fromJSString (coerce val))
-    else Left "was not string"
+      then Right (fromJSString (coerce val))
+      else Left "was not string"
 
 
 number :: Decode Double
 number =
   Decode $ \val ->
     if ffi_isNumber val
-    then Right (ffi_toNumber val)
-    else Left "was not number"
+      then Right (ffi_toNumber val)
+      else Left "was not number"
 
 
 list :: Decode a -> Decode [a]
-list elem =
+list decoder =
   Decode $ \val ->
     if ffi_isArray val
-    then traverse (runDecode elem) (fromJSArray (coerce val))
-    else Left "was not array"
+      then traverse (runDecode decoder) (fromJSArray (coerce val))
+      else Left "was not array"
 
 
 field :: String -> Decode a -> Decode a
-field key elem =
+field key decoder =
   Decode $ \val ->
     if ffi_isObject val && (coerce $ toJSString key) `ffi_keyIsIn` (coerce val)
-    then runDecode elem . coerce $ (coerce val) `ffi_keyGet` (coerce $ toJSString key)
-    else Left "was not object, or object didn't have key"
+      then runDecode decoder . coerce $ (coerce val) `ffi_keyGet` (coerce $ toJSString key)
+      else Left "was not object, or object didn't have key"

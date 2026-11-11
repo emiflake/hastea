@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+
 module Hastea.Internal.Foreign.DOM
   ( DOMNode
   , setInnerHTML
@@ -19,38 +20,45 @@ module Hastea.Internal.Foreign.DOM
   , replaceChild
   , requestAnimationFrame
   )
-  where
+where
+
+import Data.Coerce
+import Hastea.Decode
+import Hastea.Internal.Foreign.FFI
+import Hastea.Internal.Foreign.Types
 
 
-import           Hastea.Internal.Foreign.FFI
-import           Hastea.Internal.Foreign.Types
-import           Data.Coerce
-import           Foreign.StablePtr
-import           Hastea.Decode
-
-foreign import javascript unsafe "document.getElementById($1)" ffi_getElementById :: JSString -> IO JSVal
+foreign import javascript unsafe "document.getElementById($1)"
+  ffi_getElementById :: JSString -> IO JSVal
 foreign import javascript unsafe "($1).innerHTML = $2" ffi_setInnerHTML :: JSVal -> JSVal -> IO ()
-foreign import javascript unsafe "($1).setAttribute($2, $3)" ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
+foreign import javascript unsafe "($1).setAttribute($2, $3)"
+  ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
 foreign import javascript unsafe "($1).value = ($2)" ffi_setValue :: JSVal -> JSString -> IO ()
-foreign import javascript unsafe "($1).removeAttribute($2)" ffi_removeAttribute :: JSVal -> JSString -> IO ()
-foreign import javascript unsafe "document.createElement($1)" ffi_createElement :: JSString -> IO JSVal
-foreign import javascript unsafe "document.createTextNode($1)" ffi_createTextNode :: JSString -> IO JSVal
+foreign import javascript unsafe "($1).removeAttribute($2)"
+  ffi_removeAttribute :: JSVal -> JSString -> IO ()
+foreign import javascript unsafe "document.createElement($1)"
+  ffi_createElement :: JSString -> IO JSVal
+foreign import javascript unsafe "document.createTextNode($1)"
+  ffi_createTextNode :: JSString -> IO JSVal
 foreign import javascript unsafe "($1).appendChild($2)" ffi_appendChild :: JSVal -> JSVal -> IO ()
-foreign import javascript unsafe "($1).addEventListener($2,$3)" ffi_addEventListener :: JSVal -> JSString -> JSFunction -> IO ()
-foreign import javascript unsafe "($1).removeEventListener($2,$3)" ffi_removeEventListener :: JSVal -> JSString -> JSFunction -> IO ()
-foreign import javascript unsafe "console.log($1)" ffi_print :: JSVal -> IO ()
+foreign import javascript unsafe "($1).addEventListener($2,$3)"
+  ffi_addEventListener :: JSVal -> JSString -> JSFunction -> IO ()
+foreign import javascript unsafe "($1).removeEventListener($2,$3)"
+  ffi_removeEventListener :: JSVal -> JSString -> JSFunction -> IO ()
 foreign import javascript unsafe "($1).childNodes[$2]" ffi_childAt :: JSVal -> Int -> IO JSVal
 foreign import javascript unsafe "($1).removeChild($2)" ffi_removeChild :: JSVal -> JSVal -> IO ()
-foreign import javascript unsafe "($1).textContent = ($2)" ffi_setTextContent :: JSVal -> JSString -> IO ()
+foreign import javascript unsafe "($1).textContent = ($2)"
+  ffi_setTextContent :: JSVal -> JSString -> IO ()
 foreign import javascript unsafe "($1).childElementCount" ffi_childElementCount :: JSVal -> IO Int
-foreign import javascript unsafe "($1).replaceChild($2, $3)" ffi_replaceChild :: JSVal -> JSVal -> JSVal -> IO ()
-foreign import javascript unsafe "window.requestAnimationFrame($1)" ffi_requestAnimationFrame :: JSFunction -> IO ()
+foreign import javascript unsafe "($1).replaceChild($2, $3)"
+  ffi_replaceChild :: JSVal -> JSVal -> JSVal -> IO ()
+foreign import javascript unsafe "window.requestAnimationFrame($1)"
+  ffi_requestAnimationFrame :: JSFunction -> IO ()
+
 
 -- FFI Wrappers
 
-
 -- Represent DOM node
-
 
 newtype DOMNode
   = DOMNode JSVal
@@ -71,8 +79,8 @@ childAt :: DOMNode -> Int -> IO (Maybe DOMNode)
 childAt parent index =
   ffi_childAt (coerce parent) index >>= \maybeChild ->
     if notNull maybeChild
-    then pure . Just . DOMNode $ maybeChild
-    else pure Nothing
+      then pure . Just . DOMNode $ maybeChild
+      else pure Nothing
 
 
 childCount :: DOMNode -> IO Int
@@ -108,13 +116,13 @@ setTextContent node text =
 
 
 createElement :: String -> IO DOMNode
-createElement string =
-  DOMNode <$> ffi_createElement (toJSString string)
+createElement tag =
+  DOMNode <$> ffi_createElement (toJSString tag)
 
 
 createTextNode :: String -> IO DOMNode
-createTextNode string =
-  DOMNode <$> ffi_createTextNode (toJSString string)
+createTextNode content =
+  DOMNode <$> ffi_createTextNode (toJSString content)
 
 
 appendChild :: DOMNode -> DOMNode -> IO ()
@@ -141,6 +149,7 @@ addEventListener :: DOMNode -> String -> (JSVal -> IO ()) -> IO ()
 addEventListener target event handler = do
   callback <- makeHaskellCallback1 $ coerce handler
   ffi_addEventListener (coerce target) (toJSString event) callback
+
 
 removeEventListener :: DOMNode -> String -> (JSVal -> IO ()) -> IO ()
 removeEventListener target event handler = do
