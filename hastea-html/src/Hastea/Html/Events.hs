@@ -92,6 +92,7 @@ module Hastea.Html.Events
   )
 where
 
+import Data.Text (Text)
 import Hastea.Html.Decode (Decoder)
 import Hastea.Html.Decode qualified as Decode
 import Hastea.Html.Internal (Attribute (..), EventOptions (..), defaultEventOptions)
@@ -102,29 +103,29 @@ import Hastea.Html.Internal (Attribute (..), EventOptions (..), defaultEventOpti
 {- | Listen for the named event and decode the event object into a message.
 If the decoder fails, no message is produced.
 -}
-on :: String -> Decoder msg -> Attribute msg
+on :: Text -> Decoder msg -> Attribute msg
 on event = Listener event defaultEventOptions
 
 
 -- | Like 'on', but can also prevent the default action or stop propagation.
-onWith :: EventOptions -> String -> Decoder msg -> Attribute msg
+onWith :: EventOptions -> Text -> Decoder msg -> Attribute msg
 onWith options event = Listener event options
 
 
 -- Listen for an event and always produce the same message.
-simple :: String -> msg -> Attribute msg
+simple :: Text -> msg -> Attribute msg
 simple event msg = on event (pure msg)
 
 
 -- Like 'simple', but also prevents the event's default action.
-preventing :: String -> msg -> Attribute msg
+preventing :: Text -> msg -> Attribute msg
 preventing event msg = onWith defaultEventOptions{preventDefault = True} event (pure msg)
 
 
 -- EVENT DECODERS
 
 -- | Decode @event.target.value@: the current text of a form control.
-targetValue :: Decoder String
+targetValue :: Decoder Text
 targetValue = Decode.at ["target", "value"] Decode.string
 
 
@@ -134,7 +135,7 @@ targetChecked = Decode.at ["target", "checked"] Decode.bool
 
 
 -- | Decode @event.key@ of a keyboard event, for example @\"Enter\"@ or @\"a\"@.
-key :: Decoder String
+key :: Decoder Text
 key = Decode.field "key" Decode.string
 
 
@@ -192,14 +193,14 @@ onWheel = simple "wheel"
 -- FORMS
 
 -- | The value of a form control changed; receives the new value as it is typed.
-onInput :: (String -> msg) -> Attribute msg
+onInput :: (Text -> msg) -> Attribute msg
 onInput toMsg = on "input" (toMsg <$> targetValue)
 
 
 {- | The value of a form control was committed, for example when a text field
 loses focus or an option is chosen; receives the new value.
 -}
-onChange :: (String -> msg) -> Attribute msg
+onChange :: (Text -> msg) -> Attribute msg
 onChange toMsg = on "change" (toMsg <$> targetValue)
 
 
@@ -240,19 +241,19 @@ onInvalid = simple "invalid"
 -- KEYBOARD
 
 -- | A key was pressed; receives the 'key'.
-onKeyDown :: (String -> msg) -> Attribute msg
+onKeyDown :: (Text -> msg) -> Attribute msg
 onKeyDown toMsg = on "keydown" (toMsg <$> key)
 
 
 -- | A key was released; receives the 'key'.
-onKeyUp :: (String -> msg) -> Attribute msg
+onKeyUp :: (Text -> msg) -> Attribute msg
 onKeyUp toMsg = on "keyup" (toMsg <$> key)
 
 
 {- | A key that produces a character was pressed; receives the 'key'. The
 @keypress@ event is deprecated in browsers: prefer 'onKeyDown'.
 -}
-onKeypress :: (String -> msg) -> Attribute msg
+onKeypress :: (Text -> msg) -> Attribute msg
 onKeypress toMsg = on "keypress" (toMsg <$> key)
 
 

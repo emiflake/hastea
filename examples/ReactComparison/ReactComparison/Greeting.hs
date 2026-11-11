@@ -10,6 +10,8 @@ module ReactComparison.Greeting
   )
 where
 
+import Data.Text (Text)
+import Data.Text qualified as T
 import Debug.Trace (trace)
 
 import Hastea.Component
@@ -20,14 +22,14 @@ import Hastea.Html.Events (onInput)
 
 
 data Form = Form
-  { name :: String
-  , address :: String
+  { name :: Text
+  , address :: Text
   }
 
 
 data Msg
-  = NameChanged String
-  | AddressChanged String
+  = NameChanged Text
+  | AddressChanged Text
 
 
 greetingForm :: Component () Form Msg out
@@ -52,7 +54,7 @@ greetingForm = component initial update view
 {- | Like the React example, this reports when it is rendered (in the
 browser console), to show that it is not when only the address changes.
 -}
-greeting :: String -> Html msg
+greeting :: Text -> Html msg
 greeting name =
   trace "Greeting was rendered" $
-    H.h3 [] [H.text (if null name then "Hello!" else "Hello, " <> name <> "!")]
+    H.h3 [] [H.text (if T.null name then "Hello!" else "Hello, " <> name <> "!")]

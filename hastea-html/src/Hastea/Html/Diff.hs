@@ -20,6 +20,7 @@ import Data.Bifunctor (second)
 import Data.List (mapAccumL, nub)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
 
 import Hastea.Html.Internal
 
@@ -31,7 +32,7 @@ data Patch msg
   | -- | Replace the node with a newly created one.
     Replace (Html msg)
   | -- | Change the content of a text node.
-    SetText String
+    SetText Text
   | -- | Change an element's attributes, then its children.
     Update [AttributeChange msg] (Children msg)
   deriving (Show)
@@ -69,7 +70,7 @@ data AttributeChange msg
   | -- | Remove an attribute, or reset a property. Never a listener.
     Clear (Attribute msg)
   | -- | The element now has a listener for this event, and did not before.
-    Listen String
+    Listen Text
   deriving (Show)
 
 
@@ -115,12 +116,12 @@ force :: Patch msg -> ()
 force patch = case patch of
   Keep -> ()
   Replace tree -> forceTree tree
-  SetText content -> forceString content
+  SetText content -> content `seq` ()
   Update changes children -> foldr (seq . forceChange) (forceChildren children) changes
  where
   forceChange (Set attribute) = forceAttribute attribute
   forceChange (Clear attribute) = forceAttribute attribute
-  forceChange (Listen event) = forceString event
+  forceChange (Listen event) = event `seq` ()
 
   forceChildren (InPlace patches) = foldr (seq . force) () patches
   forceChildren (Rearrange ops) = foldr (seq . forceOp) () ops
@@ -132,25 +133,21 @@ force patch = case patch of
 forceTree :: Html msg -> ()
 forceTree tree = case tree of
   Element tag attributes children ->
-    forceString tag `seq` foldr (seq . forceAttribute) (foldr (seq . forceTree) () children) attributes
-  Text content -> forceString content
+    tag `seq` foldr (seq . forceAttribute) (foldr (seq . forceTree) () children) attributes
+  Text content -> content `seq` ()
   Lazy _ inner -> forceTree inner
-  Keyed key inner -> forceString key `seq` forceTree inner
+  Keyed key inner -> key `seq` forceTree inner
   Fragment trees -> foldr (seq . forceTree) () trees
   Extend _ fallback -> forceTree fallback
 
 
 forceAttribute :: Attribute msg -> ()
 forceAttribute attribute = case attribute of
-  Attribute key value -> forceString key `seq` forceString value
-  BoolAttribute key value -> forceString key `seq` value `seq` ()
-  Property key (PropertyString value) -> forceString key `seq` forceString value
-  Property key (PropertyBool value) -> forceString key `seq` value `seq` ()
-  Listener event _ decoder -> forceString event `seq` decoder `seq` ()
-
-
-forceString :: String -> ()
-forceString = foldr seq ()
+  Attribute key value -> key `seq` value `seq` ()
+  BoolAttribute key value -> key `seq` value `seq` ()
+  Property key (PropertyString value) -> key `seq` value `seq` ()
+  Property key (PropertyBool value) -> key `seq` value `seq` ()
+  Listener event _ decoder -> event `seq` decoder `seq` ()
 
 
 withoutKey :: Html msg -> Html msg
@@ -198,7 +195,7 @@ diffChildren unflattenedOlds unflattenedNews
   reuses _ (Create _) = False
 
 
-type Unmatched msg = (Map String (Int, Html msg), [(Int, Html msg)])
+type Unmatched msg = (Map Text (Int, Html msg), [(Int, Html msg)])
 
 
 match :: Unmatched msg -> Html msg -> (Unmatched msg, (ChildOp msg, Html msg))
@@ -222,7 +219,7 @@ isKeyed _ = False
 
 -- Attributes and properties are set in different ways, so one of each can
 -- exist under the same name.
-data Slot = AttributeSlot String | PropertySlot String
+data Slot = AttributeSlot Text | PropertySlot Text
   deriving (Eq)
 
 

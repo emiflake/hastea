@@ -3,6 +3,8 @@ module Main (main) where
 import Control.Applicative ((<|>))
 import Control.Exception (SomeException, evaluate, try)
 import Data.List (nub, sortOn, (\\))
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Html (Attribute, Html)
 import Hastea.Html qualified as H
@@ -61,9 +63,9 @@ elementTests suite = do
 {- | The elements of the HTML Living Standard, written out independently of
 the library, minus obsolete ones and the SVG and MathML roots.
 -}
-standardElements :: [String]
+standardElements :: [Text]
 standardElements =
-  words
+  T.words
     "html head title base link meta style body article section nav aside h1 h2 h3 h4 h5 h6 \
     \hgroup header footer address p hr pre blockquote ol ul menu li dl dt dd figure figcaption \
     \main search div a em strong small s cite q dfn abbr ruby rt rp data time code var samp kbd \
@@ -82,7 +84,7 @@ attributeTests suite = do
         equal
           suite
           ("attribute " <> describe attribute)
-          ("<div" <> (if null expected then "" else " " <> expected) <> "></div>")
+          ("<div" <> (if T.null expected then "" else " " <> expected) <> "></div>")
           (renderHtml (H.div [attribute] []))
     )
     Tables.attributes
@@ -289,7 +291,7 @@ functorTests suite = do
 
 decodeTests :: Suite -> IO ()
 decodeTests suite = do
-  let run :: Decoder a -> Value -> Either String a
+  let run :: Decoder a -> Value -> Either Text a
       run = decodeValue
 
   equal suite "string" (Right "a") (run D.string (StringValue "a"))
@@ -367,8 +369,8 @@ decodeTests suite = do
 
 -- | A DOM node: its attributes and properties are kept sorted by name.
 data Dom
-  = DomText String
-  | DomElement String [(String, String)] [(String, I.PropertyValue)] [Dom]
+  = DomText Text
+  | DomElement Text [(Text, Text)] [(Text, I.PropertyValue)] [Dom]
   deriving (Eq, Show)
 
 
@@ -407,7 +409,7 @@ without k = filter ((/= k) . fst)
 
 
 -- A property that is empty or false is the same as one that was never set.
-putProperty :: String -> I.PropertyValue -> [(String, I.PropertyValue)] -> [(String, I.PropertyValue)]
+putProperty :: Text -> I.PropertyValue -> [(Text, I.PropertyValue)] -> [(Text, I.PropertyValue)]
 putProperty k v ps
   | v `elem` [I.PropertyString "", I.PropertyBool False] = without k ps
   | otherwise = put k v ps
@@ -447,17 +449,17 @@ applyPatch patch dom = case (patch, dom) of
     ]
 
 
-item :: String -> Html Msg
+item :: Text -> Html Msg
 item name = H.li [] [H.text name]
 
 
-keyedItem :: String -> Html Msg
+keyedItem :: Text -> Html Msg
 keyedItem name = H.keyed name (item name)
 
 
 -- Must be a top-level function for 'lazy' to recognise it again.
 viewNumbers :: [Int] -> Html Msg
-viewNumbers ns = H.ul [] [H.li [] [H.text (show n)] | n <- ns]
+viewNumbers ns = H.ul [] [H.li [] [H.text (showT n)] | n <- ns]
 
 
 diffTests :: Suite -> IO ()
@@ -543,6 +545,7 @@ diffTests suite = do
 
   -- Finding failures before touching the page
   let failing = H.div [] [H.p [] [H.text ("a" <> error "this view fails")]] :: Html Msg
+      forced :: Patch Msg -> IO Text
       forced patch = either (const "failed") (const "fine") <$> (try (evaluate (force patch)) :: IO (Either SomeException ()))
   equal suite "force finds a failing view in a new node" "failed" =<< forced (fst (diff (H.text "x") failing))
   equal suite "force finds a failing view in a changed text" "failed" =<< forced (fst (diff (H.div [] [H.p [] [H.text "a"]]) failing))
@@ -576,7 +579,7 @@ diffTests suite = do
     I.sameRefs [I.Ref viewNumbers, I.Ref numbers] [I.Ref viewNumbers, I.Ref numbers]
   equal suite "sameRefs: different lengths" False $
     I.sameRefs [I.Ref numbers] [I.Ref numbers, I.Ref numbers]
-  equal suite "sameRefs: different values" False (I.sameRefs [I.Ref numbers] [I.Ref "abc"])
+  equal suite "sameRefs: different values" False (I.sameRefs [I.Ref numbers] [I.Ref ("abc" :: Text)])
   equal suite "fmap over lazy with the same function is skipped" "keep" $
     -- One function for both: without optimisation, each mention of a
     -- constructor can be a separate function in memory.

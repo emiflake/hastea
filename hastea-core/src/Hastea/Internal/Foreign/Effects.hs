@@ -6,6 +6,7 @@ module Hastea.Internal.Foreign.Effects
   )
 where
 
+import Data.Text (Text)
 import Prelude hiding (putStrLn)
 
 import Hastea.Internal.Foreign.Types
@@ -17,19 +18,19 @@ foreign import javascript unsafe "console.warn($1)" ffi_warn :: JSString -> IO (
 foreign import javascript unsafe "console.error($1)" ffi_error :: JSString -> IO ()
 
 
-alert :: String -> IO ()
+alert :: Text -> IO ()
 alert = ffi_alert . toJSString
 
 
-putStrLn :: String -> IO ()
+putStrLn :: Text -> IO ()
 putStrLn = ffi_putStrLn . toJSString
 
 
 -- | Write a warning to the browser console.
-warn :: String -> IO ()
+warn :: Text -> IO ()
 warn = ffi_warn . toJSString
 
 
 -- | Write an error to the browser console.
-reportError :: String -> IO ()
+reportError :: Text -> IO ()
 reportError = ffi_error . toJSString

@@ -39,21 +39,23 @@ where
 
 import Control.Applicative (Alternative (..))
 import Data.Bifunctor (first)
+import Data.Text (Text)
+import Data.Text qualified as T
 
 
 -- | A description of how to turn a JavaScript value into an @a@.
 data Decoder a where
   Succeed :: a -> Decoder a
-  Fail :: String -> Decoder a
+  Fail :: Text -> Decoder a
   Ap :: Decoder (b -> a) -> Decoder b -> Decoder a
   Alt :: Decoder a -> Decoder a -> Decoder a
   AndThen :: Decoder b -> (b -> Decoder a) -> Decoder a
-  String :: Decoder String
+  Str :: Decoder Text
   Number :: Decoder Double
   Bool :: Decoder Bool
   Nullable :: Decoder b -> Decoder (Maybe b)
   List :: Decoder b -> Decoder [b]
-  Field :: String -> Decoder a -> Decoder a
+  Field :: Text -> Decoder a -> Decoder a
 
 
 instance Show (Decoder a) where
@@ -76,8 +78,8 @@ instance Alternative Decoder where
 
 
 -- | Decode a JavaScript string.
-string :: Decoder String
-string = String
+string :: Decoder Text
+string = Str
 
 
 -- | Decode a JavaScript number.
@@ -106,12 +108,12 @@ nullable = Nullable
 
 
 -- | Decode a property of an object.
-field :: String -> Decoder a -> Decoder a
+field :: Text -> Decoder a -> Decoder a
 field = Field
 
 
 -- | Decode a nested property: @at ["target", "value"] string@.
-at :: [String] -> Decoder a -> Decoder a
+at :: [Text] -> Decoder a -> Decoder a
 at path decoder = foldr field decoder path
 
 
@@ -131,7 +133,7 @@ andThen = AndThen
 
 
 -- | A decoder that always fails with the given message.
-failWith :: String -> Decoder a
+failWith :: Text -> Decoder a
 failWith = Fail
 
 
@@ -139,29 +141,29 @@ failWith = Fail
 against both real JavaScript values and the pure 'Value' type.
 -}
 data Source v = Source
-  { string :: v -> Maybe String
+  { string :: v -> Maybe Text
   , number :: v -> Maybe Double
   , bool :: v -> Maybe Bool
   , isNull :: v -> Bool
   -- ^ Whether the value is @null@ or @undefined@.
   , list :: v -> Maybe [v]
-  , field :: String -> v -> Maybe v
+  , field :: Text -> v -> Maybe v
   -- ^ Look up a property; 'Nothing' if the value has no such property.
   }
 
 
 -- | Run a decoder against any kind of value that has a 'Source'.
-decodeWith :: forall v a. Source v -> Decoder a -> v -> Either String a
+decodeWith :: forall v a. Source v -> Decoder a -> v -> Either Text a
 decodeWith source = go
  where
-  go :: forall b. Decoder b -> v -> Either String b
+  go :: forall b. Decoder b -> v -> Either Text b
   go decoder v = case decoder of
     Succeed a -> Right a
     Fail message -> Left message
     Ap df da -> go df v <*> go da v
     Alt a b -> either (const (go b v)) Right (go a v)
     AndThen a f -> go a v >>= \x -> go (f x) v
-    String -> expect "a string" (source.string v)
+    Str -> expect "a string" (source.string v)
     Number -> expect "a number" (source.number v)
     Bool -> expect "a boolean" (source.bool v)
     Nullable inner
@@ -170,16 +172,16 @@ decodeWith source = go
     List inner -> do
       items <- expect "an array" (source.list v)
       sequence
-        [first (within ("[" <> show i <> "]")) (go inner item) | (i, item) <- zip [0 :: Int ..] items]
+        [first (within ("[" <> T.pack (show i) <> "]")) (go inner item) | (i, item) <- zip [0 :: Int ..] items]
     Field key inner -> do
-      child <- expect ("an object with a field named " <> show key) (source.field key v)
+      child <- expect ("an object with a field named " <> T.pack (show key)) (source.field key v)
       first (within ("." <> key)) (go inner child)
 
   expect what = maybe (Left ("expected " <> what)) Right
 
   -- Prefix an error with the path segment it happened in.
-  within segment message = case message of
-    c : _ | c `elem` ".[" -> segment <> message
+  within segment message = case T.uncons message of
+    Just (c, _) | c == '.' || c == '[' -> segment <> message
     _ -> segment <> ": " <> message
 
 
@@ -190,14 +192,14 @@ data Value
   = Null
   | BoolValue Bool
   | NumberValue Double
-  | StringValue String
+  | StringValue Text
   | ArrayValue [Value]
-  | ObjectValue [(String, Value)]
+  | ObjectValue [(Text, Value)]
   deriving (Eq, Show)
 
 
 -- | Run a decoder against a pure 'Value'.
-decodeValue :: Decoder a -> Value -> Either String a
+decodeValue :: Decoder a -> Value -> Either Text a
 decodeValue = decodeWith valueSource
 
 

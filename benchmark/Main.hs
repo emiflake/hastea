@@ -6,6 +6,9 @@ measures both. See the README next to this file.
 -}
 module Main where
 
+import Data.Text (Text)
+import Data.Text qualified as T
+
 import Hastea.App (runApp)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
@@ -21,7 +24,7 @@ import Hastea.Svg.Attributes qualified as Svg
 
 data Row = Row
   { id :: Int
-  , label :: String
+  , label :: Text
   }
 
 
@@ -49,8 +52,8 @@ makeRows count model =
 
 
 -- | A label of three words chosen by a seed, and the next seed.
-makeLabel :: Int -> (Int, String)
-makeLabel seed0 = (seed3, unwords [choose adjectives seed1, choose colours seed2, choose nouns seed3])
+makeLabel :: Int -> (Int, Text)
+makeLabel seed0 = (seed3, T.unwords [choose adjectives seed1, choose colours seed2, choose nouns seed3])
  where
   seed1 = next seed0
   seed2 = next seed1
@@ -60,10 +63,10 @@ makeLabel seed0 = (seed3, unwords [choose adjectives seed1, choose colours seed2
   choose list number = list !! (number `mod` length list)
 
 
-adjectives, colours, nouns :: [String]
-adjectives = words "pretty large big small tall short long handsome plain quaint clean elegant easy angry crazy helpful mushy odd unsightly adorable important inexpensive cheap expensive fancy"
-colours = words "red yellow blue green pink brown purple brown white black orange"
-nouns = words "table chair house bbq desk car pony cookie sandwich burger pizza mouse keyboard"
+adjectives, colours, nouns :: [Text]
+adjectives = T.words "pretty large big small tall short long handsome plain quaint clean elegant easy angry crazy helpful mushy odd unsightly adorable important inexpensive cheap expensive fancy"
+colours = T.words "red yellow blue green pink brown purple brown white black orange"
+nouns = T.words "table chair house bbq desk car pony cookie sandwich burger pizza mouse keyboard"
 
 
 -- UPDATE
@@ -136,14 +139,14 @@ view model =
         [ H.tbody
             [A.id_ "tbody"]
             [ -- A row that did not change, and whose selection did not, is skipped.
-              H.keyed (show row.id) (H.lazy2 viewRow (row.id == model.selected) row)
+              H.keyed (T.pack (show row.id)) (H.lazy2 viewRow (row.id == model.selected) row)
             | row <- model.rows
             ]
         ]
     ]
 
 
-action :: String -> String -> Msg -> Html Msg
+action :: Text -> Text -> Msg -> Html Msg
 action buttonId caption msg =
   H.button [A.type_ "button", A.id_ buttonId, onClick msg] [H.text caption]
 
@@ -152,7 +155,7 @@ viewRow :: Bool -> Row -> Html Msg
 viewRow isSelected row =
   H.tr
     [A.classList [("danger", isSelected)]]
-    [ H.td [A.className "id"] [H.text (show row.id)]
+    [ H.td [A.className "id"] [H.text (T.pack (show row.id))]
     , H.td [] [H.a [A.className "lbl", onClick (Selected row.id)] [H.text row.label]]
     , H.td [] [H.a [A.className "remove", onClick (Removed row.id)] [H.text "x"]]
     ]

@@ -8,6 +8,9 @@ module Example.TodoMVC.TodoMVC
   )
 where
 
+import Data.Text (Text)
+import Data.Text qualified as T
+
 import Hastea.App (runApp)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
@@ -28,7 +31,7 @@ runTodoMVC = runApp update initial view
 
 data Model = Model
   { todos :: Todos
-  , entry :: String
+  , entry :: Text
   -- ^ The text in the "What needs to be done?" field.
   , filter :: Filter
   }
@@ -42,8 +45,8 @@ initial = Model{todos = Todos.empty, entry = "", filter = All}
 
 -- | What the user can do.
 data Msg
-  = EntryChanged String
-  | EntryKeyPressed String
+  = EntryChanged Text
+  | EntryKeyPressed Text
   | Toggled TodoId
   | AllToggled
   | FilterSelected Filter
@@ -59,7 +62,7 @@ step :: Msg -> Model -> Model
 step msg model = case msg of
   EntryChanged newEntry -> model{entry = newEntry}
   EntryKeyPressed "Enter"
-    | not (null model.entry) -> model{todos = Todos.add model.entry model.todos, entry = ""}
+    | not (T.null model.entry) -> model{todos = Todos.add model.entry model.todos, entry = ""}
   EntryKeyPressed _ -> model
   Toggled todoId -> model{todos = Todos.toggle todoId model.todos}
   AllToggled -> model{todos = Todos.toggleAll model.todos}
@@ -82,7 +85,7 @@ view model =
     ]
 
 
-viewHeader :: String -> Html Msg
+viewHeader :: Text -> Html Msg
 viewHeader entry =
   H.header
     [A.className "header"]
@@ -120,7 +123,7 @@ viewTodos current todos =
   H.ul
     [A.className "todo-list"]
     [ -- The key ties each todo to its element, whatever the filter shows.
-      H.keyed (show todoId) (viewTodo todoId todo)
+      H.keyed (T.pack (show todoId)) (viewTodo todoId todo)
     | (todoId, todo) <- Todos.visible current todos
     ]
 
@@ -153,7 +156,7 @@ viewFooter model =
 
 viewItemCount :: Int -> Html msg
 viewItemCount count =
-  H.span [A.className "todo-count"] [H.text (show count <> " " <> items <> " left")]
+  H.span [A.className "todo-count"] [H.text (T.pack (show count) <> " " <> items <> " left")]
  where
   items = if count == 1 then "item" else "items"
 
@@ -173,7 +176,7 @@ viewFilter current choice =
     ]
 
 
-filterName :: Filter -> String
+filterName :: Filter -> Text
 filterName All = "All"
 filterName Active = "Active"
 filterName Completed = "Completed"

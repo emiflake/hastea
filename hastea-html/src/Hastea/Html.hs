@@ -183,18 +183,20 @@ where
 
 import Prelude hiding (div, head, span)
 
+import Data.Text (Text)
+
 import Hastea.Html.Internal (Attribute, Html (..), Ref (..))
 
 
 -- | A text node. The text is escaped when rendered.
-text :: String -> Html msg
+text :: Text -> Html msg
 text = Text
 
 
 {- | An element with a custom tag name, for anything this module does not
 cover, such as custom elements.
 -}
-node :: String -> [Attribute msg] -> [Html msg] -> Html msg
+node :: Text -> [Attribute msg] -> [Html msg] -> Html msg
 node = Element
 
 
@@ -223,10 +225,10 @@ rebuilt. Without keys, children are matched by position. Keys must be unique
 among siblings.
 
 @
-ul [] [keyed (show (todoId todo)) (viewTodo todo) | todo <- todos]
+H.ul [] [H.keyed (T.pack (show todo.id)) (viewTodo todo) | todo <- todos]
 @
 -}
-keyed :: String -> Html msg -> Html msg
+keyed :: Text -> Html msg -> Html msg
 keyed = Keyed
 
 
@@ -262,7 +264,7 @@ lazy3 view x y z = Lazy [Ref view, Ref x, Ref y, Ref z] (view x y z)
 
 
 -- An element that cannot have children.
-void :: String -> [Attribute msg] -> Html msg
+void :: Text -> [Attribute msg] -> Html msg
 void tag attributes = Element tag attributes []
 
 

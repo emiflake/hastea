@@ -11,6 +11,8 @@ module ReactComparison.Headings
   )
 where
 
+import Data.Text (Text)
+
 import Hastea.Html (Html)
 import Hastea.Html qualified as H
 import Hastea.Html.Attributes qualified as A
@@ -45,7 +47,7 @@ section children level =
 
 
 -- | A heading of the size that fits its level.
-heading :: String -> Leveled msg
+heading :: Text -> Leveled msg
 heading title level = tag [] [H.text title]
  where
   tag = case level of

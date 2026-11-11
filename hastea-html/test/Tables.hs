@@ -6,13 +6,15 @@ module Tables
   )
 where
 
+import Data.Text (Text)
+
 import Hastea.Html (Attribute, Html)
 import Hastea.Html qualified as H
 import Hastea.Html.Attributes qualified as A
 
 
 -- | Ordinary elements with the tag name they should produce.
-elements :: [(String, [Attribute ()] -> [Html ()] -> Html ())]
+elements :: [(Text, [Attribute ()] -> [Html ()] -> Html ())]
 elements =
   [ ("html", H.html)
   , ("head", H.head)
@@ -117,7 +119,7 @@ elements =
 
 
 -- | Void elements with the tag name they should produce.
-voidElements :: [(String, [Attribute ()] -> Html ())]
+voidElements :: [(Text, [Attribute ()] -> Html ())]
 voidElements =
   [ ("base", H.base)
   , ("link", H.link)
@@ -136,7 +138,7 @@ voidElements =
 
 
 -- | Attributes with how they should render inside a tag.
-attributes :: [(String, Attribute ())]
+attributes :: [(Text, Attribute ())]
 attributes =
   [ ("accesskey=\"x\"", A.accessKey "x")
   , ("autocapitalize=\"x\"", A.autocapitalize "x")

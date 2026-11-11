@@ -10,6 +10,7 @@ module Hastea.Dom
   )
 where
 
+import Data.Text (Text)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Internal.Foreign.Types
@@ -26,10 +27,10 @@ foreign import javascript unsafe "requestAnimationFrame(() => document.getElemen
 {- | Give the focus to the element with this id, once the page shows the
 latest view. Does nothing if there is no such element.
 -}
-focus :: String -> Cmd msg
+focus :: Text -> Cmd msg
 focus = Cmd.effect . ffi_focus . toJSString
 
 
 -- | Take the focus away from the element with this id.
-blur :: String -> Cmd msg
+blur :: Text -> Cmd msg
 blur = Cmd.effect . ffi_blur . toJSString

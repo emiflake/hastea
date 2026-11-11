@@ -18,6 +18,7 @@ where
 
 import Control.Monad
 import Data.IORef
+import Data.Text (Text)
 import Data.Void (Void, absurd)
 
 import Hastea.Cmd
@@ -39,7 +40,7 @@ data App model msg = App
   -- ^ What to show for a model.
   , subscriptions :: model -> Sub msg
   -- ^ What to listen to, besides the view, while the model is like this.
-  , container :: String
+  , container :: Text
   -- ^ The id of the element to show the view in.
   }
 

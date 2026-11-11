@@ -67,192 +67,193 @@ module Hastea.Svg.Attributes
   )
 where
 
+import Data.Text (Text)
 import Hastea.Html.Internal (Attribute (..))
 
 
 -- COORDINATES AND SIZES
 
-viewBox :: String -> Attribute msg
+viewBox :: Text -> Attribute msg
 viewBox = Attribute "viewBox"
 
 
-x :: String -> Attribute msg
+x :: Text -> Attribute msg
 x = Attribute "x"
 
 
-y :: String -> Attribute msg
+y :: Text -> Attribute msg
 y = Attribute "y"
 
 
-width :: String -> Attribute msg
+width :: Text -> Attribute msg
 width = Attribute "width"
 
 
-height :: String -> Attribute msg
+height :: Text -> Attribute msg
 height = Attribute "height"
 
 
-x1 :: String -> Attribute msg
+x1 :: Text -> Attribute msg
 x1 = Attribute "x1"
 
 
-y1 :: String -> Attribute msg
+y1 :: Text -> Attribute msg
 y1 = Attribute "y1"
 
 
-x2 :: String -> Attribute msg
+x2 :: Text -> Attribute msg
 x2 = Attribute "x2"
 
 
-y2 :: String -> Attribute msg
+y2 :: Text -> Attribute msg
 y2 = Attribute "y2"
 
 
-cx :: String -> Attribute msg
+cx :: Text -> Attribute msg
 cx = Attribute "cx"
 
 
-cy :: String -> Attribute msg
+cy :: Text -> Attribute msg
 cy = Attribute "cy"
 
 
-r :: String -> Attribute msg
+r :: Text -> Attribute msg
 r = Attribute "r"
 
 
-rx :: String -> Attribute msg
+rx :: Text -> Attribute msg
 rx = Attribute "rx"
 
 
-ry :: String -> Attribute msg
+ry :: Text -> Attribute msg
 ry = Attribute "ry"
 
 
-transform :: String -> Attribute msg
+transform :: Text -> Attribute msg
 transform = Attribute "transform"
 
 
-preserveAspectRatio :: String -> Attribute msg
+preserveAspectRatio :: Text -> Attribute msg
 preserveAspectRatio = Attribute "preserveAspectRatio"
 
 
 -- SHAPES
 
-d :: String -> Attribute msg
+d :: Text -> Attribute msg
 d = Attribute "d"
 
 
-points :: String -> Attribute msg
+points :: Text -> Attribute msg
 points = Attribute "points"
 
 
 -- PAINT
 
-fill :: String -> Attribute msg
+fill :: Text -> Attribute msg
 fill = Attribute "fill"
 
 
-fillOpacity :: String -> Attribute msg
+fillOpacity :: Text -> Attribute msg
 fillOpacity = Attribute "fill-opacity"
 
 
-fillRule :: String -> Attribute msg
+fillRule :: Text -> Attribute msg
 fillRule = Attribute "fill-rule"
 
 
-stroke :: String -> Attribute msg
+stroke :: Text -> Attribute msg
 stroke = Attribute "stroke"
 
 
-strokeWidth :: String -> Attribute msg
+strokeWidth :: Text -> Attribute msg
 strokeWidth = Attribute "stroke-width"
 
 
-strokeOpacity :: String -> Attribute msg
+strokeOpacity :: Text -> Attribute msg
 strokeOpacity = Attribute "stroke-opacity"
 
 
-strokeLinecap :: String -> Attribute msg
+strokeLinecap :: Text -> Attribute msg
 strokeLinecap = Attribute "stroke-linecap"
 
 
-strokeLinejoin :: String -> Attribute msg
+strokeLinejoin :: Text -> Attribute msg
 strokeLinejoin = Attribute "stroke-linejoin"
 
 
-strokeDasharray :: String -> Attribute msg
+strokeDasharray :: Text -> Attribute msg
 strokeDasharray = Attribute "stroke-dasharray"
 
 
-strokeDashoffset :: String -> Attribute msg
+strokeDashoffset :: Text -> Attribute msg
 strokeDashoffset = Attribute "stroke-dashoffset"
 
 
-opacity :: String -> Attribute msg
+opacity :: Text -> Attribute msg
 opacity = Attribute "opacity"
 
 
-clipPathRef :: String -> Attribute msg
+clipPathRef :: Text -> Attribute msg
 clipPathRef = Attribute "clip-path"
 
 
-maskRef :: String -> Attribute msg
+maskRef :: Text -> Attribute msg
 maskRef = Attribute "mask"
 
 
 -- GRADIENTS
 
-offset :: String -> Attribute msg
+offset :: Text -> Attribute msg
 offset = Attribute "offset"
 
 
-stopColor :: String -> Attribute msg
+stopColor :: Text -> Attribute msg
 stopColor = Attribute "stop-color"
 
 
-stopOpacity :: String -> Attribute msg
+stopOpacity :: Text -> Attribute msg
 stopOpacity = Attribute "stop-opacity"
 
 
-gradientUnits :: String -> Attribute msg
+gradientUnits :: Text -> Attribute msg
 gradientUnits = Attribute "gradientUnits"
 
 
-gradientTransform :: String -> Attribute msg
+gradientTransform :: Text -> Attribute msg
 gradientTransform = Attribute "gradientTransform"
 
 
 -- TEXT
 
-textAnchor :: String -> Attribute msg
+textAnchor :: Text -> Attribute msg
 textAnchor = Attribute "text-anchor"
 
 
-dominantBaseline :: String -> Attribute msg
+dominantBaseline :: Text -> Attribute msg
 dominantBaseline = Attribute "dominant-baseline"
 
 
-fontSize :: String -> Attribute msg
+fontSize :: Text -> Attribute msg
 fontSize = Attribute "font-size"
 
 
-fontFamily :: String -> Attribute msg
+fontFamily :: Text -> Attribute msg
 fontFamily = Attribute "font-family"
 
 
-fontWeight :: String -> Attribute msg
+fontWeight :: Text -> Attribute msg
 fontWeight = Attribute "font-weight"
 
 
-dx :: String -> Attribute msg
+dx :: Text -> Attribute msg
 dx = Attribute "dx"
 
 
-dy :: String -> Attribute msg
+dy :: Text -> Attribute msg
 dy = Attribute "dy"
 
 
 -- LINKS
 
-href :: String -> Attribute msg
+href :: Text -> Attribute msg
 href = Attribute "href"

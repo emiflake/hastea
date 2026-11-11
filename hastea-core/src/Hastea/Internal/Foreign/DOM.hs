@@ -2,14 +2,14 @@
 module Hastea.Internal.Foreign.DOM
   ( DOMNode
 
-    -- * Finding and creating nodes
+    -- * Setting up
+  , install
   , getElementById
-  , createElement
-  , createTextNode
+
+    -- * Building nodes
   , Namespace
-  , htmlNamespace
   , namespaceInside
-  , parentNode
+  , build
 
     -- * Attributes and properties
   , setAttribute
@@ -19,13 +19,15 @@ module Hastea.Internal.Foreign.DOM
   , setText
 
     -- * The tree
-  , appendChild
   , removeAllChildren
   , childAt
-  , childNodes
-  , placeChildAt
+  , parentNode
   , replaceWith
-  , remove
+  , Nodes
+  , snapshotChildren
+  , nodeAt
+  , setNodeAt
+  , arrange
 
     -- * Events
   , Event
@@ -41,6 +43,7 @@ module Hastea.Internal.Foreign.DOM
 where
 
 import Data.Coerce
+import Data.Text (Text)
 import Hastea.Internal.Foreign.FFI
 import Hastea.Internal.Foreign.Types
 
@@ -56,18 +59,12 @@ type Event = JSVal
 
 foreign import javascript unsafe "document.getElementById($1)"
   ffi_getElementById :: JSString -> IO JSVal
-foreign import javascript unsafe "document.createElement($1)"
-  ffi_createElement :: JSString -> IO JSVal
-foreign import javascript unsafe "document.createElementNS($1, $2)"
-  ffi_createElementNS :: JSString -> JSString -> IO JSVal
 
 
 -- Inside <foreignObject>, SVG gives way to HTML again.
 foreign import javascript unsafe "(($1).localName === 'foreignObject' ? null : ($1).namespaceURI) ?? 'http://www.w3.org/1999/xhtml'"
   ffi_namespaceInside :: JSVal -> IO JSString
 foreign import javascript unsafe "($1).parentNode" ffi_parentNode :: JSVal -> IO JSVal
-foreign import javascript unsafe "document.createTextNode($1)"
-  ffi_createTextNode :: JSString -> IO JSVal
 foreign import javascript unsafe "($1).setAttribute($2, $3)"
   ffi_setAttribute :: JSVal -> JSString -> JSString -> IO ()
 foreign import javascript unsafe "($1).removeAttribute($2)"
@@ -80,18 +77,12 @@ foreign import javascript unsafe "($1)[$2] = ($3)"
 foreign import javascript unsafe "($1)[$2] = !!($3)"
   ffi_setBoolProperty :: JSVal -> JSString -> Bool -> IO ()
 foreign import javascript unsafe "($1).data = ($2)" ffi_setText :: JSVal -> JSString -> IO ()
-foreign import javascript unsafe "($1).appendChild($2)" ffi_appendChild :: JSVal -> JSVal -> IO ()
 foreign import javascript unsafe "($1).replaceChildren()" ffi_removeAllChildren :: JSVal -> IO ()
 foreign import javascript unsafe "($1).childNodes[$2]" ffi_childAt :: JSVal -> Int -> IO JSVal
 foreign import javascript unsafe "Array.from(($1).childNodes)" ffi_childNodes :: JSVal -> IO JSArray
 
 
--- Does nothing if the node is already in place, so that an unmoved node keeps
--- its state. Inserting before `undefined` appends.
-foreign import javascript unsafe "(() => { const parent = $1, node = $3, current = parent.childNodes[$2]; if (current !== node) parent.insertBefore(node, current ?? null); })()"
-  ffi_placeChildAt :: JSVal -> Int -> JSVal -> IO ()
 foreign import javascript unsafe "($1).replaceWith($2)" ffi_replaceWith :: JSVal -> JSVal -> IO ()
-foreign import javascript unsafe "($1).remove()" ffi_remove :: JSVal -> IO ()
 foreign import javascript unsafe "($1).addEventListener($2, $3, true)"
   ffi_addCaptureListener :: JSVal -> JSString -> JSFunction -> IO ()
 foreign import javascript unsafe "!!($1).bubbles" ffi_eventBubbles :: JSVal -> IO Bool
@@ -109,24 +100,89 @@ foreign import javascript unsafe "window.requestAnimationFrame($1)"
 foreign import javascript unsafe "($1) == null" ffi_isNull :: JSVal -> Bool
 
 
--- FINDING AND CREATING NODES
+-- SETTING UP
 
-getElementById :: String -> IO (Maybe DOMNode)
+{- The part of building the page that is done in JavaScript, to keep the
+number of calls from Haskell down. It is defined once, by 'install'.
+
+build(namespace, script) creates nodes from a description: records that end
+in \\x1e, each starting with a letter that says what it is.
+
+  E tag           start an element
+  A key\\x1f value  set an attribute of the element
+  S key\\x1f value  assign text to a property of the element
+  B key\\x1f 0|1    assign a boolean to a property of the element
+  T text          a text node
+  C               end the element
+
+Properties are assigned when the element ends: the value of a select can
+only be set once its options are there. As in an HTML document, svg and
+math start their own namespace, which their descendants share, and inside
+foreignObject it is HTML again.
+
+arrange(parent, olds, created, order) makes the children of a node be the
+ones listed in order: a number is a position in olds, the children as they
+were, and -1 is the next of the nodes in created. Old children that are not
+listed are removed.
+-}
+foreign import javascript unsafe "(() => { \
+  \const HTML = 'http://www.w3.org/1999/xhtml'; \
+  \const build = (namespace, script) => { \
+  \  const nodes = []; const stack = []; let current = null; \
+  \  for (const record of script.split('\\x1e')) { \
+  \    if (record === '') continue; \
+  \    const rest = record.slice(1); \
+  \    switch (record[0]) { \
+  \      case 'E': { \
+  \        const around = current ? current.inside : namespace; \
+  \        const own = rest === 'svg' ? 'http://www.w3.org/2000/svg' : rest === 'math' ? 'http://www.w3.org/1998/Math/MathML' : around; \
+  \        const node = own === HTML ? document.createElement(rest) : document.createElementNS(own, rest); \
+  \        if (current) current.node.appendChild(node); else nodes.push(node); \
+  \        stack.push(current); \
+  \        current = { node, inside: rest === 'foreignObject' ? HTML : own, properties: null }; \
+  \        break; } \
+  \      case 'A': { const at = rest.indexOf('\\x1f'); current.node.setAttribute(rest.slice(0, at), rest.slice(at + 1)); break; } \
+  \      case 'S': case 'B': { if (!current.properties) current.properties = []; current.properties.push(record); break; } \
+  \      case 'T': { const node = document.createTextNode(rest); if (current) current.node.appendChild(node); else nodes.push(node); break; } \
+  \      case 'C': { \
+  \        if (current.properties) for (const property of current.properties) { \
+  \          const at = property.indexOf('\\x1f'); const value = property.slice(at + 1); \
+  \          current.node[property.slice(1, at)] = property[0] === 'S' ? value : value === '1'; } \
+  \        current = stack.pop(); break; } \
+  \    } \
+  \  } \
+  \  return nodes; }; \
+  \const arrange = (parent, olds, created, order) => { \
+  \  const wanted = []; const used = new Set(); let next = 0; \
+  \  if (order !== '') for (const part of order.split(',')) { \
+  \    const index = Number(part); \
+  \    if (index < 0) wanted.push(created[next++]); else { wanted.push(olds[index]); used.add(index); } } \
+  \  for (let index = 0; index < olds.length; index++) if (!used.has(index)) olds[index].remove(); \
+  \  let cursor = parent.firstChild; \
+  \  for (const node of wanted) { if (node === cursor) cursor = cursor.nextSibling; else parent.insertBefore(node, cursor); } }; \
+  \globalThis.__hastea = { build, arrange }; })()"
+  ffi_install :: IO ()
+foreign import javascript unsafe "globalThis.__hastea.build($1, $2)"
+  ffi_build :: JSString -> JSString -> IO JSArray
+foreign import javascript unsafe "globalThis.__hastea.arrange($1, $2, $3, $4)"
+  ffi_arrange :: JSVal -> JSArray -> JSArray -> JSString -> IO ()
+foreign import javascript unsafe "($1)[$2]" ffi_nodeAt :: JSArray -> Int -> IO JSVal
+foreign import javascript unsafe "($1)[$2] = ($3)" ffi_setNodeAt :: JSArray -> Int -> JSVal -> IO ()
+
+
+-- | Define the JavaScript that 'build' and 'arrange' call. Do this first.
+install :: IO ()
+install = ffi_install
+
+
+getElementById :: Text -> IO (Maybe DOMNode)
 getElementById elemId = nullable <$> ffi_getElementById (toJSString elemId)
 
 
+-- BUILDING NODES
+
 -- | The namespace an element is created in: HTML, SVG or MathML.
-type Namespace = String
-
-
-htmlNamespace :: Namespace
-htmlNamespace = "http://www.w3.org/1999/xhtml"
-
-
-createElement :: Namespace -> String -> IO DOMNode
-createElement namespace tag
-  | namespace == htmlNamespace = DOMNode <$> ffi_createElement (toJSString tag)
-  | otherwise = DOMNode <$> ffi_createElementNS (toJSString namespace) (toJSString tag)
+type Namespace = Text
 
 
 -- | The namespace that the children of a node are in, unless they say otherwise.
@@ -134,13 +190,11 @@ namespaceInside :: DOMNode -> IO Namespace
 namespaceInside node = fromJSString <$> ffi_namespaceInside (coerce node)
 
 
-parentNode :: DOMNode -> IO (Maybe DOMNode)
-parentNode node = nullable <$> ffi_parentNode (coerce node)
-
-
-createTextNode :: String -> IO DOMNode
-createTextNode content =
-  DOMNode <$> ffi_createTextNode (toJSString content)
+{- | Create nodes from a description of them, in a single call. See the
+comment on the JavaScript above for what a description looks like.
+-}
+build :: Namespace -> Text -> IO Nodes
+build namespace script = Nodes <$> ffi_build (toJSString namespace) (toJSString script)
 
 
 nullable :: JSVal -> Maybe DOMNode
@@ -149,39 +203,32 @@ nullable val = if ffi_isNull val then Nothing else Just (DOMNode val)
 
 -- ATTRIBUTES AND PROPERTIES
 
-setAttribute :: DOMNode -> String -> String -> IO ()
+setAttribute :: DOMNode -> Text -> Text -> IO ()
 setAttribute node attrKey attrValue =
   ffi_setAttribute (coerce node) (toJSString attrKey) (toJSString attrValue)
 
 
-removeAttribute :: DOMNode -> String -> IO ()
+removeAttribute :: DOMNode -> Text -> IO ()
 removeAttribute node attrKey =
   ffi_removeAttribute (coerce node) (toJSString attrKey)
 
 
 -- | Assign a string to a property of a node, e.g. @node.value = "..."@.
-setProperty :: DOMNode -> String -> String -> IO ()
+setProperty :: DOMNode -> Text -> Text -> IO ()
 setProperty node key value =
   ffi_setProperty (coerce node) (toJSString key) (toJSString value)
 
 
 -- | Assign a boolean to a property of a node, e.g. @node.checked = true@.
-setBoolProperty :: DOMNode -> String -> Bool -> IO ()
+setBoolProperty :: DOMNode -> Text -> Bool -> IO ()
 setBoolProperty node key value =
   ffi_setBoolProperty (coerce node) (toJSString key) value
 
 
 -- | Change the content of a text node.
-setText :: DOMNode -> String -> IO ()
+setText :: DOMNode -> Text -> IO ()
 setText node content =
   ffi_setText (coerce node) (toJSString content)
-
-
--- THE TREE
-
-appendChild :: DOMNode -> DOMNode -> IO ()
-appendChild parent child =
-  ffi_appendChild (coerce parent) (coerce child)
 
 
 removeAllChildren :: DOMNode -> IO ()
@@ -192,17 +239,35 @@ childAt :: DOMNode -> Int -> IO (Maybe DOMNode)
 childAt parent index = nullable <$> ffi_childAt (coerce parent) index
 
 
--- | The children of a node as they are now; later changes do not affect the list.
-childNodes :: DOMNode -> IO [DOMNode]
-childNodes parent = map DOMNode . fromJSArray <$> ffi_childNodes (coerce parent)
+parentNode :: DOMNode -> IO (Maybe DOMNode)
+parentNode node = nullable <$> ffi_parentNode (coerce node)
 
 
-{- | Make a node the child at the given position, moving or inserting it
-unless it is already there.
+-- | Some nodes, kept on the JavaScript side.
+newtype Nodes = Nodes JSArray
+
+
+-- | The children of a node as they are now; later changes do not affect it.
+snapshotChildren :: DOMNode -> IO Nodes
+snapshotChildren parent = Nodes <$> ffi_childNodes (coerce parent)
+
+
+nodeAt :: Nodes -> Int -> IO DOMNode
+nodeAt (Nodes nodes) index = DOMNode <$> ffi_nodeAt nodes index
+
+
+setNodeAt :: Nodes -> Int -> DOMNode -> IO ()
+setNodeAt (Nodes nodes) index node = ffi_setNodeAt nodes index (coerce node)
+
+
+{- | Make the children of a node be the ones listed, in that order. Each
+entry of the list is separated by a comma: a number is a position among the
+children as they were, and @-1@ stands for the next of the created nodes.
+Children that are not listed are removed.
 -}
-placeChildAt :: DOMNode -> Int -> DOMNode -> IO ()
-placeChildAt parent index child =
-  ffi_placeChildAt (coerce parent) index (coerce child)
+arrange :: DOMNode -> Nodes -> Nodes -> Text -> IO ()
+arrange parent (Nodes olds) (Nodes created) order =
+  ffi_arrange (coerce parent) olds created (toJSString order)
 
 
 -- | Put a new node in the place of an old one.
@@ -210,17 +275,12 @@ replaceWith :: DOMNode -> DOMNode -> IO ()
 replaceWith old new = ffi_replaceWith (coerce old) (coerce new)
 
 
--- | Take a node out of the tree.
-remove :: DOMNode -> IO ()
-remove node = ffi_remove (coerce node)
-
-
 -- EVENTS
 
 {- | Listen for an event on a node in the capture phase, which also sees
 events on its descendants that do not bubble, such as @focus@.
 -}
-addCaptureListener :: DOMNode -> String -> (Event -> IO ()) -> IO ()
+addCaptureListener :: DOMNode -> Text -> (Event -> IO ()) -> IO ()
 addCaptureListener target event handler = do
   callback <- makeHaskellCallback1 (coerce handler)
   ffi_addCaptureListener (coerce target) (toJSString event) callback

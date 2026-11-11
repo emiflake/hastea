@@ -53,10 +53,11 @@ module Hastea.Svg
   )
 where
 
+import Data.Text (Text)
 import Hastea.Html.Internal (Attribute, Html (..))
 
 
-svgNode :: String -> [Attribute msg] -> [Html msg] -> Html msg
+svgNode :: Text -> [Attribute msg] -> [Html msg] -> Html msg
 svgNode = Element
 
 

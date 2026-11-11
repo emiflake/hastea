@@ -9,6 +9,8 @@ module ReactComparison.Accordion
   )
 where
 
+import Data.Text (Text)
+
 import Hastea.Component
 import Hastea.Html (Html)
 import Hastea.Html qualified as H
@@ -38,7 +40,7 @@ accordion = component initial update view
 {- | A React component without state is a function. The @onShow@ callback
 prop becomes the message to send, so the panel works for any message type.
 -}
-panel :: String -> Bool -> msg -> [Html msg] -> Html msg
+panel :: Text -> Bool -> msg -> [Html msg] -> Html msg
 panel title isActive onShow children =
   H.section
     [A.className "panel"]

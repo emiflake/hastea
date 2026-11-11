@@ -1,7 +1,9 @@
 module Main (main) where
 
 import Data.IORef
-import Data.List (isInfixOf, nub)
+import Data.List (nub)
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Cmd (runCmd)
 import Hastea.Cmd qualified as Cmd
@@ -33,7 +35,7 @@ data Sim msg = Sim
   { store :: IORef (Store msg)
   , received :: IORef [msg]
   -- ^ The messages that left the tree, latest first.
-  , warned :: IORef [String]
+  , warned :: IORef [Text]
   }
 
 
@@ -79,7 +81,7 @@ counter = component initial update view
  where
   initial _ = 0
   update (Add n) count = (count + n, [])
-  view step count = H.button [onClick (Add step)] [H.text (show count)]
+  view step count = H.button [onClick (Add step)] [H.text (showT count)]
 
 
 data ReporterMsg = Report | Again
@@ -96,7 +98,7 @@ reporter = (component initial update view){subscriptions}
     Again -> (count, [Run (Cmd.perform (pure Report))])
 
   view () count =
-    H.div [] [H.button [onClick Report] [H.text (show count)], H.button [onClick Again] [H.text "again"]]
+    H.div [] [H.button [onClick Report] [H.text (showT count)], H.button [onClick Again] [H.text "again"]]
 
   subscriptions count = if count > 0 then Sub.custom "ticks" neverStarts Just else Sub.none
 
@@ -113,11 +115,11 @@ total = component initial update view
  where
   initial () = 0
   update (Reported n) _ = (n, [])
-  view () latest = H.div [] [Reported <$> use reporter (), H.span [] [H.text (show latest)]]
+  view () latest = H.div [] [Reported <$> use reporter (), H.span [] [H.text (showT latest)]]
 
 
 -- | Says hello to its surroundings when it appears and goodbye when it goes.
-greeter :: Component String () () Msg
+greeter :: Component Text () () Msg
 greeter =
   (component (const ()) (\() () -> ((), [])) (\name () -> H.span [] [H.text name]))
     { onMount = \name -> [Emit (Typed ("hello " <> name))]
@@ -125,11 +127,11 @@ greeter =
     }
 
 
-newtype LoaderMsg = Loaded String
+newtype LoaderMsg = Loaded Text
 
 
 -- | Loads what it shows when it appears.
-loader :: Component () String LoaderMsg out
+loader :: Component () Text LoaderMsg out
 loader =
   (component (const "loading") (\(Loaded content) _ -> (content, [])) (\() content -> H.p [] [H.text content]))
     { onMount = \() -> [Run (Cmd.perform (pure (Loaded "loaded")))]
@@ -142,7 +144,7 @@ pair = component (const ()) (\() () -> ((), [])) (\() () -> H.fragment [use coun
 
 
 lazyFragment :: Int -> Html Msg
-lazyFragment n = H.fragment [H.text (show n), H.text "!"]
+lazyFragment n = H.fragment [H.text (showT n), H.text "!"]
 
 
 -- Must be top-level functions for 'lazy' to recognise them again.
@@ -152,7 +154,7 @@ lazyCounter step = H.div [] [use counter step]
 
 componentTests :: Suite -> IO ()
 componentTests suite = do
-  let shown = renderHtml :: Html (Routed Msg) -> String
+  let shown = renderHtml :: Html (Routed Msg) -> Text
 
   equal suite "a component without a state shows its initial view" "<p><button>0</button></p>" $
     renderHtml (H.p [] [use counter 1] :: Html Msg)
@@ -207,7 +209,7 @@ componentTests suite = do
 
   -- Outputs become messages of the surrounding view.
   outSim <- newSim
-  let reporting = H.div [] [Typed . show <$> use reporter ()] :: Html Msg
+  let reporting = H.div [] [Typed . showT <$> use reporter ()] :: Html Msg
   r1 <- showTree outSim reporting
   click outSim [0, 0] r1
   click outSim [0, 0] r1
@@ -230,7 +232,7 @@ componentTests suite = do
   -- Subscriptions
   let names (I.Sub.Sub sources) = map fst sources
   subSim <- newSim
-  let twoReporters = H.div [] [Typed . show <$> use reporter (), Typed . show <$> use reporter ()] :: Html Msg
+  let twoReporters = H.div [] [Typed . showT <$> use reporter (), Typed . showT <$> use reporter ()] :: Html Msg
   s1 <- showTree subSim twoReporters
   equal suite "no subscriptions to begin with" [] . names . subscriptionsOf =<< readIORef subSim.store
   click subSim [0, 0] s1
@@ -311,11 +313,11 @@ componentTests suite = do
   warnSim <- newSim
   _ <- showTree warnSim (H.ul [] [H.keyed "a" (H.li [] []), H.keyed "b" (H.li [] []), H.keyed "a" (H.li [] [])] :: Html Msg)
   duplicate <- readIORef warnSim.warned
-  equal suite "duplicate keys are pointed out, once per key" [True] (map ("the key \"a\"" `isInfixOf`) duplicate)
+  equal suite "duplicate keys are pointed out, once per key" [True] (map ("the key \"a\"" `T.isInfixOf`) duplicate)
   writeIORef warnSim.warned []
   _ <- showTree warnSim (H.div [] [H.lazy lazyFragment 1] :: Html Msg)
   inLazy <- readIORef warnSim.warned
-  equal suite "a fragment directly inside lazy is pointed out" [True] (map ("inside lazy" `isInfixOf`) inLazy)
+  equal suite "a fragment directly inside lazy is pointed out" [True] (map ("inside lazy" `T.isInfixOf`) inLazy)
   writeIORef warnSim.warned []
   _ <- showTree warnSim (H.ul [] [H.keyed "a" (H.li [] []), H.keyed "b" (H.li [] []), H.fragment [H.text "x"]] :: Html Msg)
   equal suite "a tree without mistakes has no warnings" [] =<< readIORef warnSim.warned

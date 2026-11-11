@@ -23,10 +23,11 @@ where
 
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
 
 
 data Todo = Todo
-  { label :: String
+  { label :: Text
   , completed :: Bool
   }
 
@@ -54,7 +55,7 @@ empty :: Todos
 empty = Todos{items = Map.empty, nextId = 0}
 
 
-add :: String -> Todos -> Todos
+add :: Text -> Todos -> Todos
 add newLabel todos =
   todos
     { items = Map.insert todos.nextId Todo{label = newLabel, completed = False} todos.items

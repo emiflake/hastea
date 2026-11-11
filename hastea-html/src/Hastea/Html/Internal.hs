@@ -24,6 +24,8 @@ module Hastea.Html.Internal
   )
 where
 
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Typeable (Typeable, eqT, (:~:) (Refl))
 import GHC.Exts (isTrue#, reallyUnsafePtrEquality#)
 import Unsafe.Coerce (unsafeCoerce)
@@ -34,9 +36,9 @@ import Hastea.Html.Decode (Decoder)
 -- | A tree of HTML that can produce messages of type @msg@.
 data Html msg
   = -- | An element with a tag name, attributes and children.
-    Element String [Attribute msg] [Html msg]
+    Element Text [Attribute msg] [Html msg]
   | -- | A text node.
-    Text String
+    Text Text
   | {- | A subtree that is only computed when needed. The references identify
     what it was computed from: if they are the same as last time, so is the
     subtree, and it is neither computed nor diffed. See 'Hastea.Html.lazy'.
@@ -45,7 +47,7 @@ data Html msg
   | {- | A node with an identity among its siblings, so that it is moved
     rather than rebuilt when a list is reordered. See 'Hastea.Html.keyed'.
     -}
-    Keyed String (Html msg)
+    Keyed Text (Html msg)
   | {- | Several nodes in a row, in a place where one is expected. See
     'Hastea.Html.fragment'.
     -}
@@ -100,7 +102,7 @@ flatten = concatMap spread
   spread tree = [tree]
 
   under key _ (Keyed inner tree) = Keyed (key <> "/" <> inner) tree
-  under key index tree = Keyed (key <> "/" <> show index) tree
+  under key index tree = Keyed (key <> "/" <> T.pack (show index)) tree
 
 
 {- | A value of some other library's type, which must say how the messages
@@ -156,18 +158,18 @@ sameRef (Ref a) (Ref b) =
 -- | Something attached to an element: an attribute, a property or an event listener.
 data Attribute msg
   = -- | A plain attribute, set with @setAttribute@.
-    Attribute String String
+    Attribute Text Text
   | {- | A boolean attribute such as @disabled@: present when 'True',
     absent when 'False'.
     -}
-    BoolAttribute String Bool
+    BoolAttribute Text Bool
   | {- | A DOM property such as @value@ or @checked@, assigned directly on
     the node. Unlike the attribute of the same name, this keeps tracking
     the live state of a form control after the user has interacted with it.
     -}
-    Property String PropertyValue
+    Property Text PropertyValue
   | -- | An event listener that decodes the event object into a message.
-    Listener String EventOptions (Decoder msg)
+    Listener Text EventOptions (Decoder msg)
   deriving (Show)
 
 
@@ -180,7 +182,7 @@ instance Functor Attribute where
 
 -- | The value assigned to a DOM property.
 data PropertyValue
-  = PropertyString String
+  = PropertyString Text
   | PropertyBool Bool
   deriving (Eq, Show)
 
@@ -203,7 +205,7 @@ defaultEventOptions = EventOptions{preventDefault = False, stopPropagation = Fal
 {- | The attribute or property name of an 'Attribute', or 'Nothing' for an
 event listener.
 -}
-attributeKey :: Attribute msg -> Maybe String
+attributeKey :: Attribute msg -> Maybe Text
 attributeKey (Attribute key _) = Just key
 attributeKey (BoolAttribute key _) = Just key
 attributeKey (Property key _) = Just key

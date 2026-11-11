@@ -16,7 +16,31 @@ module Hastea.Internal.Foreign.Types
   )
 where
 
-import GHC.Wasm.Prim (JSString (..), JSVal, fromJSString, toJSString)
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Foreign qualified as Foreign
+import Data.Word (Word8)
+import Foreign.Ptr (Ptr)
+import GHC.Wasm.Prim (JSString (..), JSVal)
+import GHC.Wasm.Prim qualified as Prim
+import System.IO.Unsafe (unsafeDupablePerformIO)
+
+
+-- Text is UTF-8 in memory, so JavaScript can decode it where it lies. The
+-- decoder is made once and kept.
+foreign import javascript unsafe "(globalThis.__hasteaDecoder || (globalThis.__hasteaDecoder = new TextDecoder())).decode(new Uint8Array(__exports.memory.buffer, $1, $2))"
+  js_decode :: Ptr Word8 -> Int -> IO JSString
+
+
+-- | Text as a JavaScript string.
+toJSString :: Text -> JSString
+toJSString text =
+  unsafeDupablePerformIO (Foreign.useAsPtr text (\bytes size -> js_decode bytes (fromIntegral size)))
+
+
+-- | A JavaScript string as text.
+fromJSString :: JSString -> Text
+fromJSString = T.pack . Prim.fromJSString
 
 
 -- | A JavaScript object.

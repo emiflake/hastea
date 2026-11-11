@@ -170,7 +170,8 @@ module Hastea.Html.Attributes
   )
 where
 
-import Data.List (intercalate)
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Html.Internal (Attribute (..), PropertyValue (..))
 
@@ -178,34 +179,34 @@ import Hastea.Html.Internal (Attribute (..), PropertyValue (..))
 -- PRIMITIVES
 
 -- | An attribute with the given name and value.
-attrib :: String -> String -> Attribute msg
+attrib :: Text -> Text -> Attribute msg
 attrib = Attribute
 
 
 -- | A boolean attribute: present when 'True', absent when 'False'.
-boolAttrib :: String -> Bool -> Attribute msg
+boolAttrib :: Text -> Bool -> Attribute msg
 boolAttrib = BoolAttribute
 
 
 {- | A string-valued DOM property, assigned directly on the node rather than
 set as an attribute.
 -}
-property :: String -> String -> Attribute msg
+property :: Text -> Text -> Attribute msg
 property key = Property key . PropertyString
 
 
 -- | A boolean-valued DOM property.
-boolProperty :: String -> Bool -> Attribute msg
+boolProperty :: Text -> Bool -> Attribute msg
 boolProperty key = Property key . PropertyBool
 
 
 -- An attribute whose value is an integer.
-intAttrib :: String -> Int -> Attribute msg
-intAttrib key = Attribute key . show
+intAttrib :: Text -> Int -> Attribute msg
+intAttrib key = Attribute key . T.pack . show
 
 
 -- An enumerated attribute that takes the keywords "true" and "false".
-trueFalseAttrib :: String -> Bool -> Attribute msg
+trueFalseAttrib :: Text -> Bool -> Attribute msg
 trueFalseAttrib key enabled = Attribute key (if enabled then "true" else "false")
 
 
@@ -217,8 +218,8 @@ trueFalseAttrib key enabled = Attribute key (if enabled then "true" else "false"
 classList [("todo", True), ("completed", isDone)]
 @
 -}
-classList :: [(String, Bool)] -> Attribute msg
-classList classes = className (unwords [name_ | (name_, True) <- classes])
+classList :: [(Text, Bool)] -> Attribute msg
+classList classes = className (T.unwords [name_ | (name_, True) <- classes])
 
 
 {- | The @style@ attribute, built from property-value pairs.
@@ -227,18 +228,18 @@ classList classes = className (unwords [name_ | (name_, True) <- classes])
 styles [("display", "block"), ("color", "red")]
 @
 -}
-styles :: [(String, String)] -> Attribute msg
+styles :: [(Text, Text)] -> Attribute msg
 styles declarations =
-  style (intercalate "; " [key <> ": " <> val | (key, val) <- declarations])
+  style (T.intercalate "; " [key <> ": " <> val | (key, val) <- declarations])
 
 
 -- | A custom data attribute: @dataAttr "id" "5"@ is @data-id="5"@.
-dataAttr :: String -> String -> Attribute msg
+dataAttr :: Text -> Text -> Attribute msg
 dataAttr key = Attribute ("data-" <> key)
 
 
 -- | An ARIA attribute: @aria "label" "Close"@ is @aria-label="Close"@.
-aria :: String -> String -> Attribute msg
+aria :: Text -> Text -> Attribute msg
 aria key = Attribute ("aria-" <> key)
 
 
@@ -247,7 +248,7 @@ aria key = Attribute ("aria-" <> key)
 {- | The current value of a form control. This is a property, so it stays in
 sync with what the user has typed.
 -}
-value :: String -> Attribute msg
+value :: Text -> Attribute msg
 value = property "value"
 
 
@@ -266,12 +267,12 @@ selected = boolProperty "selected"
 
 
 -- | A keyboard shortcut for the element.
-accessKey :: String -> Attribute msg
+accessKey :: Text -> Attribute msg
 accessKey = Attribute "accesskey"
 
 
 -- | How typed text is capitalised: @"off"@, @"sentences"@, @"words"@ or @"characters"@.
-autocapitalize :: String -> Attribute msg
+autocapitalize :: Text -> Attribute msg
 autocapitalize = Attribute "autocapitalize"
 
 
@@ -281,7 +282,7 @@ autofocus = BoolAttribute "autofocus"
 
 
 -- | The element's CSS classes, separated by spaces.
-className :: String -> Attribute msg
+className :: Text -> Attribute msg
 className = Attribute "class"
 
 
@@ -291,7 +292,7 @@ contentEditable = trueFalseAttrib "contenteditable"
 
 
 -- | Text direction: @"ltr"@, @"rtl"@ or @"auto"@.
-dir :: String -> Attribute msg
+dir :: Text -> Attribute msg
 dir = Attribute "dir"
 
 
@@ -301,7 +302,7 @@ draggable = trueFalseAttrib "draggable"
 
 
 -- | The label of the enter key on virtual keyboards.
-enterKeyHint :: String -> Attribute msg
+enterKeyHint :: Text -> Attribute msg
 enterKeyHint = Attribute "enterkeyhint"
 
 
@@ -311,7 +312,7 @@ hidden = BoolAttribute "hidden"
 
 
 -- | The element's unique identifier.
-id_ :: String -> Attribute msg
+id_ :: Text -> Attribute msg
 id_ = Attribute "id"
 
 
@@ -321,42 +322,42 @@ inert = BoolAttribute "inert"
 
 
 -- | Which virtual keyboard to show, for example @"numeric"@.
-inputMode :: String -> Attribute msg
+inputMode :: Text -> Attribute msg
 inputMode = Attribute "inputmode"
 
 
 -- | The name of the custom element this element should behave as.
-is :: String -> Attribute msg
+is :: Text -> Attribute msg
 is = Attribute "is"
 
 
 -- | A microdata property name.
-itemProp :: String -> Attribute msg
+itemProp :: Text -> Attribute msg
 itemProp = Attribute "itemprop"
 
 
 -- | The language of the element's content.
-lang :: String -> Attribute msg
+lang :: Text -> Attribute msg
 lang = Attribute "lang"
 
 
 -- | A cryptographic nonce for Content Security Policy.
-nonce :: String -> Attribute msg
+nonce :: Text -> Attribute msg
 nonce = Attribute "nonce"
 
 
 -- | Make the element a popover: @"auto"@ or @"manual"@.
-popover :: String -> Attribute msg
+popover :: Text -> Attribute msg
 popover = Attribute "popover"
 
 
 -- | The element's ARIA role.
-role :: String -> Attribute msg
+role :: Text -> Attribute msg
 role = Attribute "role"
 
 
 -- | The web component slot the element is assigned to.
-slot :: String -> Attribute msg
+slot :: Text -> Attribute msg
 slot = Attribute "slot"
 
 
@@ -366,7 +367,7 @@ spellcheck = trueFalseAttrib "spellcheck"
 
 
 -- | Inline CSS. See also 'styles'.
-style :: String -> Attribute msg
+style :: Text -> Attribute msg
 style = Attribute "style"
 
 
@@ -376,7 +377,7 @@ tabIndex = intAttrib "tabindex"
 
 
 -- | Advisory text, usually shown as a tooltip.
-title :: String -> Attribute msg
+title :: Text -> Attribute msg
 title = Attribute "title"
 
 
@@ -389,37 +390,37 @@ translate enabled = Attribute "translate" (if enabled then "yes" else "no")
 
 
 -- | The URL a link points to.
-href :: String -> Attribute msg
+href :: Text -> Attribute msg
 href = Attribute "href"
 
 
 -- | Where to open a link or submit a form, for example @"_blank"@.
-target :: String -> Attribute msg
+target :: Text -> Attribute msg
 target = Attribute "target"
 
 
 -- | Download the link target, using this file name.
-download :: String -> Attribute msg
+download :: Text -> Attribute msg
 download = Attribute "download"
 
 
 -- | The language of the linked resource.
-hreflang :: String -> Attribute msg
+hreflang :: Text -> Attribute msg
 hreflang = Attribute "hreflang"
 
 
 -- | URLs to notify when a link is followed.
-ping :: String -> Attribute msg
+ping :: Text -> Attribute msg
 ping = Attribute "ping"
 
 
 -- | The relationship between the document and the linked resource.
-rel :: String -> Attribute msg
+rel :: Text -> Attribute msg
 rel = Attribute "rel"
 
 
 -- | Which referrer to send when fetching the resource.
-referrerPolicy :: String -> Attribute msg
+referrerPolicy :: Text -> Attribute msg
 referrerPolicy = Attribute "referrerpolicy"
 
 
@@ -427,17 +428,17 @@ referrerPolicy = Attribute "referrerpolicy"
 
 
 -- | The type of an 'Hastea.Html.input', 'Hastea.Html.button', 'Hastea.Html.script' and others.
-type_ :: String -> Attribute msg
+type_ :: Text -> Attribute msg
 type_ = Attribute "type"
 
 
 -- | The name of a form control, submitted with the form.
-name :: String -> Attribute msg
+name :: Text -> Attribute msg
 name = Attribute "name"
 
 
 -- | A hint shown while a field is empty.
-placeholder :: String -> Attribute msg
+placeholder :: Text -> Attribute msg
 placeholder = Attribute "placeholder"
 
 
@@ -462,37 +463,37 @@ multiple = BoolAttribute "multiple"
 
 
 -- | A hint for form autofill, such as @"off"@ or @"email"@.
-autocomplete :: String -> Attribute msg
+autocomplete :: Text -> Attribute msg
 autocomplete = Attribute "autocomplete"
 
 
 -- | The id of the control a 'Hastea.Html.label' or 'Hastea.Html.output' belongs to.
-for :: String -> Attribute msg
+for :: Text -> Attribute msg
 for = Attribute "for"
 
 
 -- | The id of the form a control belongs to.
-form :: String -> Attribute msg
+form :: Text -> Attribute msg
 form = Attribute "form"
 
 
 -- | The id of a 'Hastea.Html.datalist' with suggestions.
-list :: String -> Attribute msg
+list :: Text -> Attribute msg
 list = Attribute "list"
 
 
 -- | The minimum value.
-min_ :: String -> Attribute msg
+min_ :: Text -> Attribute msg
 min_ = Attribute "min"
 
 
 -- | The maximum value.
-max_ :: String -> Attribute msg
+max_ :: Text -> Attribute msg
 max_ = Attribute "max"
 
 
 -- | The granularity of the value, or @"any"@.
-step :: String -> Attribute msg
+step :: Text -> Attribute msg
 step = Attribute "step"
 
 
@@ -507,7 +508,7 @@ maxLength = intAttrib "maxlength"
 
 
 -- | A regular expression the value must match.
-pattern :: String -> Attribute msg
+pattern :: Text -> Attribute msg
 pattern = Attribute "pattern"
 
 
@@ -517,17 +518,17 @@ size = intAttrib "size"
 
 
 -- | The file types a file input accepts.
-accept :: String -> Attribute msg
+accept :: Text -> Attribute msg
 accept = Attribute "accept"
 
 
 -- | Which camera or microphone to capture a file from.
-capture :: String -> Attribute msg
+capture :: Text -> Attribute msg
 capture = Attribute "capture"
 
 
 -- | The name under which to submit the field's text direction.
-dirname :: String -> Attribute msg
+dirname :: Text -> Attribute msg
 dirname = Attribute "dirname"
 
 
@@ -542,37 +543,37 @@ cols = intAttrib "cols"
 
 
 -- | How a 'Hastea.Html.textarea' wraps its value: @"soft"@ or @"hard"@.
-wrap :: String -> Attribute msg
+wrap :: Text -> Attribute msg
 wrap = Attribute "wrap"
 
 
 -- | The label of an 'Hastea.Html.option', 'Hastea.Html.optgroup' or 'Hastea.Html.track'.
-label :: String -> Attribute msg
+label :: Text -> Attribute msg
 label = Attribute "label"
 
 
 -- | The upper bound of the low range of a 'Hastea.Html.meter'.
-low :: String -> Attribute msg
+low :: Text -> Attribute msg
 low = Attribute "low"
 
 
 -- | The lower bound of the high range of a 'Hastea.Html.meter'.
-high :: String -> Attribute msg
+high :: Text -> Attribute msg
 high = Attribute "high"
 
 
 -- | The optimal value of a 'Hastea.Html.meter'.
-optimum :: String -> Attribute msg
+optimum :: Text -> Attribute msg
 optimum = Attribute "optimum"
 
 
 -- | The id of the popover a button controls.
-popoverTarget :: String -> Attribute msg
+popoverTarget :: Text -> Attribute msg
 popoverTarget = Attribute "popovertarget"
 
 
 -- | What a button does to its popover: @"show"@, @"hide"@ or @"toggle"@.
-popoverTargetAction :: String -> Attribute msg
+popoverTargetAction :: Text -> Attribute msg
 popoverTargetAction = Attribute "popovertargetaction"
 
 
@@ -580,22 +581,22 @@ popoverTargetAction = Attribute "popovertargetaction"
 
 
 -- | The URL a form is submitted to.
-action :: String -> Attribute msg
+action :: Text -> Attribute msg
 action = Attribute "action"
 
 
 -- | The HTTP method a form is submitted with.
-method :: String -> Attribute msg
+method :: Text -> Attribute msg
 method = Attribute "method"
 
 
 -- | How form data is encoded.
-enctype :: String -> Attribute msg
+enctype :: Text -> Attribute msg
 enctype = Attribute "enctype"
 
 
 -- | The character encodings a form is submitted in.
-acceptCharset :: String -> Attribute msg
+acceptCharset :: Text -> Attribute msg
 acceptCharset = Attribute "accept-charset"
 
 
@@ -605,22 +606,22 @@ noValidate = BoolAttribute "novalidate"
 
 
 -- | Override the form's 'action' for one submit button.
-formAction :: String -> Attribute msg
+formAction :: Text -> Attribute msg
 formAction = Attribute "formaction"
 
 
 -- | Override the form's 'method' for one submit button.
-formMethod :: String -> Attribute msg
+formMethod :: Text -> Attribute msg
 formMethod = Attribute "formmethod"
 
 
 -- | Override the form's 'enctype' for one submit button.
-formEnctype :: String -> Attribute msg
+formEnctype :: Text -> Attribute msg
 formEnctype = Attribute "formenctype"
 
 
 -- | Override the form's 'target' for one submit button.
-formTarget :: String -> Attribute msg
+formTarget :: Text -> Attribute msg
 formTarget = Attribute "formtarget"
 
 
@@ -633,12 +634,12 @@ formNoValidate = BoolAttribute "formnovalidate"
 
 
 -- | The URL of an embedded resource.
-src :: String -> Attribute msg
+src :: Text -> Attribute msg
 src = Attribute "src"
 
 
 -- | Text to use when an image cannot be shown.
-alt :: String -> Attribute msg
+alt :: Text -> Attribute msg
 alt = Attribute "alt"
 
 
@@ -653,37 +654,37 @@ height = intAttrib "height"
 
 
 -- | Candidate images for different screen sizes and densities.
-srcset :: String -> Attribute msg
+srcset :: Text -> Attribute msg
 srcset = Attribute "srcset"
 
 
 -- | The layout width of an image for different media conditions.
-sizes :: String -> Attribute msg
+sizes :: Text -> Attribute msg
 sizes = Attribute "sizes"
 
 
 -- | When to load the resource: @"lazy"@ or @"eager"@.
-loading :: String -> Attribute msg
+loading :: Text -> Attribute msg
 loading = Attribute "loading"
 
 
 -- | How to decode an image: @"sync"@, @"async"@ or @"auto"@.
-decoding :: String -> Attribute msg
+decoding :: Text -> Attribute msg
 decoding = Attribute "decoding"
 
 
 -- | The priority of the fetch: @"high"@, @"low"@ or @"auto"@.
-fetchPriority :: String -> Attribute msg
+fetchPriority :: Text -> Attribute msg
 fetchPriority = Attribute "fetchpriority"
 
 
 -- | How to handle cross-origin requests.
-crossOrigin :: String -> Attribute msg
+crossOrigin :: Text -> Attribute msg
 crossOrigin = Attribute "crossorigin"
 
 
 -- | The name of the image map to use.
-useMap :: String -> Attribute msg
+useMap :: Text -> Attribute msg
 useMap = Attribute "usemap"
 
 
@@ -693,27 +694,27 @@ isMap = BoolAttribute "ismap"
 
 
 -- | The coordinates of an 'Hastea.Html.area'.
-coords :: String -> Attribute msg
+coords :: Text -> Attribute msg
 coords = Attribute "coords"
 
 
 -- | The shape of an 'Hastea.Html.area'.
-shape :: String -> Attribute msg
+shape :: Text -> Attribute msg
 shape = Attribute "shape"
 
 
 -- | The HTML content of an 'Hastea.Html.iframe'.
-srcdoc :: String -> Attribute msg
+srcdoc :: Text -> Attribute msg
 srcdoc = Attribute "srcdoc"
 
 
 -- | Restrictions on the content of an 'Hastea.Html.iframe'.
-sandbox :: String -> Attribute msg
+sandbox :: Text -> Attribute msg
 sandbox = Attribute "sandbox"
 
 
 -- | The permissions policy of an 'Hastea.Html.iframe'.
-allow :: String -> Attribute msg
+allow :: Text -> Attribute msg
 allow = Attribute "allow"
 
 
@@ -723,7 +724,7 @@ allowFullscreen = BoolAttribute "allowfullscreen"
 
 
 -- | The URL of an 'Hastea.Html.object' resource. For @data-*@ attributes see 'dataAttr'.
-data_ :: String -> Attribute msg
+data_ :: Text -> Attribute msg
 data_ = Attribute "data"
 
 
@@ -756,22 +757,22 @@ playsInline = BoolAttribute "playsinline"
 
 
 -- | An image to show before a video plays.
-poster :: String -> Attribute msg
+poster :: Text -> Attribute msg
 poster = Attribute "poster"
 
 
 -- | How much to preload: @"none"@, @"metadata"@ or @"auto"@.
-preload :: String -> Attribute msg
+preload :: Text -> Attribute msg
 preload = Attribute "preload"
 
 
 -- | The kind of a text 'Hastea.Html.track'.
-kind :: String -> Attribute msg
+kind :: Text -> Attribute msg
 kind = Attribute "kind"
 
 
 -- | The language of a text 'Hastea.Html.track'.
-srclang :: String -> Attribute msg
+srclang :: Text -> Attribute msg
 srclang = Attribute "srclang"
 
 
@@ -794,12 +795,12 @@ rowSpan = intAttrib "rowspan"
 
 
 -- | The ids of the header cells for a cell.
-headers :: String -> Attribute msg
+headers :: Text -> Attribute msg
 headers = Attribute "headers"
 
 
 -- | Which cells a header cell applies to.
-scope :: String -> Attribute msg
+scope :: Text -> Attribute msg
 scope = Attribute "scope"
 
 
@@ -825,37 +826,37 @@ start = intAttrib "start"
 
 
 -- | The character encoding of the document.
-charset :: String -> Attribute msg
+charset :: Text -> Attribute msg
 charset = Attribute "charset"
 
 
 -- | The value of a 'Hastea.Html.meta' element.
-content :: String -> Attribute msg
+content :: Text -> Attribute msg
 content = Attribute "content"
 
 
 -- | A pragma directive for a 'Hastea.Html.meta' element.
-httpEquiv :: String -> Attribute msg
+httpEquiv :: Text -> Attribute msg
 httpEquiv = Attribute "http-equiv"
 
 
 -- | The media the resource applies to.
-media :: String -> Attribute msg
+media :: Text -> Attribute msg
 media = Attribute "media"
 
 
 -- | Subresource integrity metadata.
-integrity :: String -> Attribute msg
+integrity :: Text -> Attribute msg
 integrity = Attribute "integrity"
 
 
 -- | The kind of content a preload 'Hastea.Html.link' fetches.
-as_ :: String -> Attribute msg
+as_ :: Text -> Attribute msg
 as_ = Attribute "as"
 
 
 -- | Which operations wait for the resource, for example @"render"@.
-blocking :: String -> Attribute msg
+blocking :: Text -> Attribute msg
 blocking = Attribute "blocking"
 
 
@@ -878,12 +879,12 @@ noModule = BoolAttribute "nomodule"
 
 
 -- | The URL of the source of a quotation or edit.
-cite :: String -> Attribute msg
+cite :: Text -> Attribute msg
 cite = Attribute "cite"
 
 
 -- | A machine-readable date or time.
-dateTime :: String -> Attribute msg
+dateTime :: Text -> Attribute msg
 dateTime = Attribute "datetime"
 
 
@@ -893,5 +894,5 @@ open = BoolAttribute "open"
 
 
 -- | A short form of a header cell's content.
-abbr :: String -> Attribute msg
+abbr :: Text -> Attribute msg
 abbr = Attribute "abbr"

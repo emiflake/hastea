@@ -25,14 +25,14 @@ Items are grouped by how much they hurt a real application. The performance item
 
 ## Performance
 
-- [x] **A benchmark**: [benchmark/](benchmark/README.md) measures a table of rows against React. Hastea is 3 to 12 times slower.
-- [ ] **Passing strings to JavaScript is the largest cost of building the page**: 5.6 µs for 20 characters, where a call without a string takes 0.1 µs. A row of the benchmark needs 17 of them, most of them tag and attribute names that never change.
-- [ ] **Each node is created by its own call**, and holding on to it from Haskell costs 3.7 µs. Building a whole subtree in one call to JavaScript would avoid both this and most of the strings.
-- [ ] **Adding, removing and moving children is quadratic.** Carrying out the patch looks children up by position in a linked list, and each child costs one DOM call to place. The benchmark shows it: 10,000 rows take 14 times as long as 1,000.
-- [ ] **An unchanged list is still walked in full.** Selecting one row of 1,000 takes 20 ms in the benchmark, though only two rows change.
+- [x] **A benchmark**: [benchmark/](benchmark/README.md) measures a table of rows against React. Hastea started out 4 to 12 times slower and is now about twice as slow.
+- [x] **Passing strings to JavaScript was the largest cost of building the page.** Text is now `Data.Text`, which is handed to JavaScript as one block of UTF-8.
+- [x] **Each node was created by its own call.** New nodes are now described in one piece of text and built by a single call.
+- [x] **Adding, removing and moving children was quadratic.** Rearranging the children of a node is now one call, done in JavaScript.
+- [ ] **An unchanged list is still walked in full.** Selecting one row of 1,000 takes 11 ms in the benchmark, against 3 ms for React, though only two rows change.
 - [ ] **Every render expands the whole tree again** before diffing, apart from `lazy` subtrees.
-- [ ] **Download size.** The benchmark page is a 2.1 MB wasm module; nothing has been done yet to shrink it (optimisation flags, `wasm-opt`, compression).
 - [ ] **Rendering is all-or-nothing per frame.** Long renders cannot be interrupted or given a priority.
+- [ ] **Download size.** The benchmark page is a 2.3 MB wasm module, and loading it takes twice as long as the React page. Nothing has been done yet to shrink it (optimisation flags, `wasm-opt`, compression).
 
 ## Developer experience
 

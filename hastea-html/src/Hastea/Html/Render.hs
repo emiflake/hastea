@@ -12,39 +12,44 @@ module Hastea.Html.Render
 where
 
 import Data.Maybe (mapMaybe)
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Lazy qualified as Lazy
+import Data.Text.Lazy.Builder (Builder)
+import Data.Text.Lazy.Builder qualified as Builder
 
 import Hastea.Html.Internal
 
 
 -- | Render a tree as HTML markup.
-renderHtml :: Html msg -> String
-renderHtml tree = render tree ""
+renderHtml :: Html msg -> Text
+renderHtml = Lazy.toStrict . Builder.toLazyText . render
 
 
 -- | Like 'renderHtml', but starts with @\<!DOCTYPE html\>@.
-renderDocument :: Html msg -> String
+renderDocument :: Html msg -> Text
 renderDocument tree = "<!DOCTYPE html>\n" <> renderHtml tree
 
 
-render :: Html msg -> ShowS
-render (Text content) = showString (escapeText content)
+render :: Html msg -> Builder
+render (Text content) = Builder.fromText (escapeText content)
 render (Lazy _ tree) = render tree
 render (Keyed _ tree) = render tree
 render (Extend _ fallback) = render fallback
-render (Fragment trees) = foldr (\tree rest -> render tree . rest) id trees
+render (Fragment trees) = foldMap render trees
 render (Element tag attributes children)
   | tag `elem` voidElements = open
-  | tag `elem` rawTextElements = open . rawChildren . close
-  | otherwise = open . foldr (\child rest -> render child . rest) id children . close
+  | tag `elem` rawTextElements = open <> rawChildren <> close
+  | otherwise = open <> foldMap render children <> close
  where
-  open = showChar '<' . showString tag . renderAttributes attributes . showChar '>'
-  close = showString "</" . showString tag . showChar '>'
-  rawChildren = showString (concat [content | Text content <- map unwrap children])
+  open = "<" <> Builder.fromText tag <> renderAttributes attributes <> ">"
+  close = "</" <> Builder.fromText tag <> ">"
+  rawChildren = foldMap Builder.fromText [content | Text content <- map unwrap children]
 
 
-renderAttributes :: [Attribute msg] -> ShowS
+renderAttributes :: [Attribute msg] -> Builder
 renderAttributes attributes =
-  showString (concatMap (' ' :) (mapMaybe renderAttribute (lastWins attributes)))
+  foldMap (\attribute -> " " <> Builder.fromText attribute) (mapMaybe renderAttribute (lastWins attributes))
 
 
 {- | When a name is given more than once, keep only the last occurrence,
@@ -58,7 +63,7 @@ lastWins = foldr keep []
     _ -> attribute : rest
 
 
-renderAttribute :: Attribute msg -> Maybe String
+renderAttribute :: Attribute msg -> Maybe Text
 renderAttribute attribute = case attribute of
   Attribute name value -> Just (pair name value)
   BoolAttribute name enabled -> flag name enabled
@@ -71,32 +76,32 @@ renderAttribute attribute = case attribute of
 
 
 -- | Escape text for use between tags.
-escapeText :: String -> String
-escapeText = concatMap escape
+escapeText :: Text -> Text
+escapeText = T.concatMap escape
  where
   escape '&' = "&amp;"
   escape '<' = "&lt;"
   escape '>' = "&gt;"
-  escape c = [c]
+  escape c = T.singleton c
 
 
 -- | Escape text for use inside a double-quoted attribute value.
-escapeAttribute :: String -> String
-escapeAttribute = concatMap escape
+escapeAttribute :: Text -> Text
+escapeAttribute = T.concatMap escape
  where
   escape '&' = "&amp;"
   escape '"' = "&quot;"
   escape '<' = "&lt;"
   escape '>' = "&gt;"
-  escape c = [c]
+  escape c = T.singleton c
 
 
 -- Elements that have no closing tag and no children.
-voidElements :: [String]
+voidElements :: [Text]
 voidElements =
   ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]
 
 
 -- Elements whose text content is not escaped.
-rawTextElements :: [String]
+rawTextElements :: [Text]
 rawTextElements = ["script", "style"]

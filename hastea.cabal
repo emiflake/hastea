@@ -26,10 +26,13 @@ common shared
   -- Records are accessed as `record.field`. Fields do not also become
   -- functions, so they can share a name with other things: a model can have
   -- a field called `title` next to the `title` element.
+  --
+  -- All text is Data.Text, so string literals are overloaded.
   default-extensions:
     DuplicateRecordFields
     NoFieldSelectors
     OverloadedRecordDot
+    OverloadedStrings
 
   ghc-options:      -Wall -Wcompat
 
@@ -60,6 +63,7 @@ library hastea-html
   build-depends:
     , base        >=4.16 && <5
     , containers  >=0.6 && <0.9
+    , text        >=2.0 && <2.2
 
 -- Components with state of their own, and the commands and subscriptions
 -- through which they have effects. Also pure Haskell: it describes what
@@ -79,6 +83,7 @@ library hastea-component
     , base
     , containers
     , hastea:hastea-html
+    , text
 
 test-suite hastea-html-test
   import:         shared
@@ -92,6 +97,7 @@ test-suite hastea-html-test
   build-depends:
     , base
     , hastea:hastea-html
+    , text
 
 test-suite hastea-component-test
   import:         shared
@@ -104,6 +110,7 @@ test-suite hastea-component-test
   build-depends:
     , base
     , hastea:{hastea-component, hastea-html}
+    , text
 
 -- The runtime: renders views to the DOM and runs the update loop.
 library
@@ -142,6 +149,7 @@ library
     , containers        >=0.6 && <0.9
     , ghc-experimental
     , hastea:{hastea-component, hastea-html}
+    , text
 
 executable hastea-todomvc
   import:         shared, wasm-only
@@ -155,6 +163,7 @@ executable hastea-todomvc
     , base
     , containers  >=0.6 && <0.9
     , hastea
+    , text
 
   -- Link as a WASI reactor exporting the entry point called by index.js.
   ghc-options:
@@ -180,6 +189,7 @@ executable hastea-react-comparison
   build-depends:
     , base
     , hastea
+    , text
 
   -- Link as a WASI reactor exporting the entry point called by index.js.
   ghc-options:
@@ -192,6 +202,7 @@ executable hastea-benchmark
   build-depends:
     , base
     , hastea
+    , text
 
   -- Link as a WASI reactor exporting the entry point called by index.js.
   ghc-options:

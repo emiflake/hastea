@@ -14,6 +14,9 @@ module ReactComparison.Tasks
   )
 where
 
+import Data.Text (Text)
+import Data.Text qualified as T
+
 import Hastea.Component
 import Hastea.Html qualified as H
 import Hastea.Html.Attributes qualified as A
@@ -22,7 +25,7 @@ import Hastea.Html.Events (onCheck, onClick, onInput)
 
 data Task = Task
   { id :: Int
-  , text :: String
+  , text :: Text
   , done :: Bool
   }
 
@@ -37,7 +40,7 @@ data Tasks = Tasks
 
 -- | The actions of the reducer.
 data Msg
-  = Added String
+  = Added Text
   | Changed Task
   | Deleted Int
 
@@ -61,7 +64,7 @@ taskApp = component initial update view
     H.fragment
       [ H.h1 [] [H.text "Prague itinerary"]
       , Added <$> use addTask ()
-      , H.ul [] [H.keyed (show task.id) (H.li [] [use taskRow task]) | task <- tasks.all]
+      , H.ul [] [H.keyed (T.pack (show task.id)) (H.li [] [use taskRow task]) | task <- tasks.all]
       ]
 
 
@@ -81,12 +84,12 @@ reducer msg tasks = case msg of
 -- ADDING A TASK
 
 data AddTaskMsg
-  = Typed String
+  = Typed Text
   | AddPressed
 
 
 -- | Keeps the text being typed, and emits it when "Add" is pressed.
-addTask :: Component () String AddTaskMsg String
+addTask :: Component () Text AddTaskMsg Text
 addTask = component initial update view
  where
   initial () = ""

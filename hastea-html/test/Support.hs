@@ -14,12 +14,14 @@ module Support
   , fire
   , describe
   , outline
+  , showT
   )
 where
 
 import Control.Monad (unless)
 import Data.IORef
-import Data.List (intercalate)
+import Data.Text (Text)
+import Data.Text qualified as T
 import System.Exit (exitFailure)
 
 import Hastea.Html (Attribute, Html)
@@ -32,21 +34,21 @@ import Hastea.Html.Render (renderHtml)
 
 -- A MINIMAL TEST HARNESS
 --
--- Only depends on base, so that the suite runs the same natively and as a
--- wasm module under wasmtime.
+-- Needs nothing beyond what the libraries need, so that the suites run the
+-- same natively and as wasm modules under wasmtime.
 
-type Suite = IORef (Int, [String])
+type Suite = IORef (Int, [Text])
 
 
 -- | Record a check that passes when both values are equal.
-equal :: (Eq a, Show a) => Suite -> String -> a -> a -> IO ()
+equal :: (Eq a, Show a) => Suite -> Text -> a -> a -> IO ()
 equal suite name expected actual =
   modifyIORef' suite $ \(count, failures) ->
     if expected == actual
       then (count + 1, failures)
       else
         ( count + 1
-        , (name <> "\n    expected: " <> show expected <> "\n    actual:   " <> show actual) : failures
+        , (name <> "\n    expected: " <> showT expected <> "\n    actual:   " <> showT actual) : failures
         )
 
 
@@ -56,7 +58,7 @@ runSuites groups = do
   suite <- newIORef (0, [])
   mapM_ ($ suite) groups
   (count, failures) <- readIORef suite
-  mapM_ (putStrLn . ("FAIL: " <>)) (reverse failures)
+  mapM_ (putStrLn . T.unpack . ("FAIL: " <>)) (reverse failures)
   putStrLn (show (count - length failures) <> " of " <> show count <> " checks passed")
   unless (null failures) exitFailure
 
@@ -64,12 +66,12 @@ runSuites groups = do
 -- HELPERS
 
 -- | A stand-in for a JavaScript object.
-obj :: [(String, Value)] -> Value
+obj :: [(Text, Value)] -> Value
 obj = ObjectValue
 
 
 -- | The listeners on an element, as (event name, options, decoder).
-listeners :: Html msg -> [(String, EventOptions, Decoder msg)]
+listeners :: Html msg -> [(Text, EventOptions, Decoder msg)]
 listeners el = case I.unwrap el of
   I.Element _ attributes _ -> [(e, o, d) | I.Listener e o d <- attributes]
   _ -> []
@@ -78,44 +80,49 @@ listeners el = case I.unwrap el of
 {- | Simulate the browser firing an event on an element: the messages
 produced by every listener for that event.
 -}
-fire :: String -> Value -> Html msg -> [Either String msg]
+fire :: Text -> Value -> Html msg -> [Either Text msg]
 fire event payload el = [decodeValue d payload | (e, _, d) <- listeners el, e == event]
 
 
 -- | What a single attribute is, in terms that can be compared.
-describe :: Attribute msg -> String
+describe :: Attribute msg -> Text
 describe attribute = case attribute of
-  I.Attribute k v -> "attribute " <> k <> "=" <> show v
-  I.BoolAttribute k v -> "boolean attribute " <> k <> "=" <> show v
-  I.Property k v -> "property " <> k <> "=" <> show v
-  I.Listener e o _ -> "listener " <> e <> " " <> show o
+  I.Attribute k v -> "attribute " <> k <> "=" <> T.pack (show v)
+  I.BoolAttribute k v -> "boolean attribute " <> k <> "=" <> T.pack (show v)
+  I.Property k v -> "property " <> k <> "=" <> T.pack (show v)
+  I.Listener e o _ -> "listener " <> e <> " " <> T.pack (show o)
 
 
 -- | Messages for the trees in the tests.
 data Msg
   = Clicked
-  | Typed String
+  | Typed Text
   | Checked Bool
-  | Key String
+  | Key Text
   | Wrapped Msg
   deriving (Eq, Show)
 
 
 -- | The outline of a patch, for comparing with what is expected.
-outline :: Patch msg -> String
+outline :: Patch msg -> Text
 outline patch = case patch of
   Keep -> "keep"
   Replace tree -> "replace:" <> renderHtml tree
   SetText content -> "text:" <> content
   Update changes children ->
-    "update{" <> intercalate "," (map changeOutline changes) <> "}" <> childrenOutline children
+    "update{" <> T.intercalate "," (map changeOutline changes) <> "}" <> childrenOutline children
  where
   changeOutline (Set attribute) = "set " <> describe attribute
   changeOutline (Clear attribute) = "clear " <> describe attribute
   changeOutline (Listen event) = "listen " <> event
 
-  childrenOutline (InPlace patches) = "[" <> intercalate "," (map outline patches) <> "]"
-  childrenOutline (Rearrange ops) = "<" <> intercalate "," (map opOutline ops) <> ">"
+  childrenOutline (InPlace patches) = "[" <> T.intercalate "," (map outline patches) <> "]"
+  childrenOutline (Rearrange ops) = "<" <> T.intercalate "," (map opOutline ops) <> ">"
 
-  opOutline (Reuse index childPatch) = show index <> ":" <> outline childPatch
+  opOutline (Reuse index childPatch) = T.pack (show index) <> ":" <> outline childPatch
   opOutline (Create tree) = "new:" <> renderHtml tree
+
+
+-- | 'show', as text.
+showT :: Show a => a -> Text
+showT = T.pack . show

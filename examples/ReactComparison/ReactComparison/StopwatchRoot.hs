@@ -14,6 +14,8 @@ where
 
 import Control.Monad (when)
 import Data.IORef
+import Data.Text (Text)
+import Data.Text qualified as T
 import Numeric (showFFloat)
 
 import Hastea.Async (setTimeout)
@@ -73,5 +75,5 @@ run = do
 
 
 -- | Milliseconds as seconds, to three decimal places.
-seconds :: Double -> String
-seconds milliseconds = showFFloat (Just 3) (milliseconds / 1000) ""
+seconds :: Double -> Text
+seconds milliseconds = T.pack (showFFloat (Just 3) (milliseconds / 1000) "")

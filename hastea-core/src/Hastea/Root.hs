@@ -42,6 +42,8 @@ where
 import Control.Exception (SomeException, displayException, evaluate, try)
 import Control.Monad
 import Data.IORef
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Cmd (runCmd)
 import Hastea.Component.Internal
@@ -70,9 +72,9 @@ data Root msg = Root
   -- ^ The state of the components in the tree.
   , subscriptions :: Manager (Routed msg)
   -- ^ The running subscriptions of the components.
-  , listening :: IORef [String]
+  , listening :: IORef [Text]
   -- ^ The events the container already listens for.
-  , warned :: IORef [String]
+  , warned :: IORef [Text]
   -- ^ The warnings already given.
   , refreshScheduled :: IORef Bool
   , onFrame :: JSFunction
@@ -86,11 +88,12 @@ function.
 
 Fails if there is no such element.
 -}
-mount :: String -> (msg -> IO ()) -> IO (Root msg)
+mount :: Text -> (msg -> IO ()) -> IO (Root msg)
 mount elementId dispatch =
   DOM.getElementById elementId >>= \case
     Nothing -> ioError (userError ("Hastea: there is no element with id " <> show elementId))
     Just container -> do
+      DOM.install
       given <- newIORef Nothing
       current <- newIORef Nothing
       components <- newIORef emptyStore
@@ -165,15 +168,16 @@ route root message = guarded root "A message could not be handled" $ case messag
 
 
 -- Run an action, and if it fails, say so in the console and carry on.
-guarded :: Root msg -> String -> IO () -> IO ()
+guarded :: Root msg -> Text -> IO () -> IO ()
 guarded _ what action =
   try action >>= \case
     Right () -> pure ()
-    Left failure -> Console.reportError ("Hastea: " <> what <> ": " <> displayException (failure :: SomeException))
+    Left failure ->
+      Console.reportError ("Hastea: " <> what <> ": " <> T.pack (displayException (failure :: SomeException)))
 
 
 -- Point out a likely mistake, once.
-warn :: Root msg -> String -> IO ()
+warn :: Root msg -> Text -> IO ()
 warn root warning = do
   given <- readIORef root.warned
   unless (warning `elem` given) $ do
@@ -182,7 +186,7 @@ warn root warning = do
 
 
 -- Make sure the container listens for an event.
-listen :: Root msg -> String -> IO ()
+listen :: Root msg -> Text -> IO ()
 listen root event = do
   events <- readIORef root.listening
   unless (event `elem` events) $ do
@@ -191,7 +195,7 @@ listen root event = do
 
 
 -- Run the handlers for an event that happened somewhere inside the container.
-handle :: Root msg -> String -> DOM.Event -> IO ()
+handle :: Root msg -> Text -> DOM.Event -> IO ()
 handle root event val = do
   path <- DOM.eventPath root.container val
   tree <- readIORef root.current
@@ -208,7 +212,7 @@ handle root event val = do
       case runDecode decoder val of
         Right message -> route root message
         Left problem ->
-          warn root ("A handler for the " <> show event <> " event ignored it, because it could not read the event: " <> problem)
+          warn root ("A handler for the " <> T.pack (show event) <> " event ignored it, because it could not read the event: " <> problem)
     unless (any (\(options, _) -> options.stopPropagation) handlers) (run outer)
 
 

@@ -6,6 +6,8 @@ module Hastea.Time
   )
 where
 
+import Data.Text qualified as T
+
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Internal.Foreign.FFI (makeHaskellCallback)
@@ -37,7 +39,7 @@ epoch) repeatedly, with the given number of milliseconds in between.
 -}
 every :: Int -> (Double -> msg) -> Sub msg
 every milliseconds toMsg =
-  Sub.custom ("Hastea.Time.every " <> show milliseconds) start (Just . toMsg)
+  Sub.custom ("Hastea.Time.every " <> T.pack (show milliseconds)) start (Just . toMsg)
  where
   start emit = do
     callback <- makeHaskellCallback (ffi_now >>= emit)

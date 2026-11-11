@@ -52,6 +52,8 @@ view model =
 
 `fragment` puts several nodes where one is expected, without an element around them.
 
+All text is `Data.Text`: tag and attribute values, keys, what event handlers receive. Turn on `OverloadedStrings` to write it as literals, and use `T.pack (show n)` to show a number.
+
 Import elements and attributes qualified, as `H` and `A`. There is an element for every tag, including `a`, `i`, `div`, `title` and `time`, and several names are both an element and an attribute; qualified, none of them get in the way of your own names or of the `Prelude`. Event handlers do not clash with anything and read well unqualified.
 
 ## How rendering works
@@ -80,7 +82,7 @@ counter = component initial update view
  where
   initial () = 0
   update Pressed count = (count + 1, [])
-  view () count = H.button [onClick Pressed] [H.text (show count)]
+  view () count = H.button [onClick Pressed] [H.text (T.pack (show count))]
 
 page :: Html msg
 page = H.div [] [use counter (), use counter ()] -- two counters, counting separately
@@ -178,6 +180,7 @@ If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-ca
 
 - The code builds warning-free under `-Wall -Wcompat`.
 
+- Text is `Data.Text` everywhere, with `OverloadedStrings` enabled in `hastea.cabal`.
 - Records use `OverloadedRecordDot` (`model.name`), with `NoFieldSelectors` and `DuplicateRecordFields`, all enabled in `hastea.cabal`. Fields are therefore not functions, and can share names with each other and with HTML elements.
 
 ## Roadmap

@@ -32,6 +32,8 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Set qualified as Set
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Typeable (Typeable)
 
 import Hastea.Cmd (Cmd)
@@ -129,9 +131,9 @@ replaces (because the tag is different) is not.
 -}
 data Segment
   = -- | The child with this key.
-    Named String String
+    Named Text Text
   | -- | The child at this position, counting only children without a key.
-    At String Int
+    At Text Int
   | -- | From a component to its view.
     Inside
   deriving (Eq, Ord, Show)
@@ -188,7 +190,7 @@ data Expansion msg = Expansion
   -- ^ The store to use from now on.
   , effects :: Cmd (Routed msg)
   -- ^ What the components that appeared or went away ask for.
-  , warnings :: [String]
+  , warnings :: [Text]
   -- ^ Likely mistakes in the tree.
   }
 
@@ -245,7 +247,7 @@ go send path tree store = case tree of
     Just mount -> component mount
  where
   -- The children of an element or a fragment.
-  contents :: String -> [Html m] -> Contents top
+  contents :: Text -> [Html m] -> Contents top
   contents tag children =
     let segments = snd (mapAccumL (segment tag) 0 children)
         results = [(key, go send (key : path) child (childStore key store)) | (key, child) <- zip segments children]
@@ -260,7 +262,7 @@ go send path tree store = case tree of
                 <> concatMap (\(_, result) -> result.warnings) results
           }
 
-  segment :: String -> Int -> Html m -> (Int, Segment)
+  segment :: Text -> Int -> Html m -> (Int, Segment)
   segment tag unkeyed (Keyed key _) = (unkeyed, Named tag key)
   segment tag unkeyed _ = (unkeyed + 1, At tag unkeyed)
 
@@ -288,7 +290,7 @@ go send path tree store = case tree of
         unmount stored = foldMap toCmd (embedded.onUnmount (fromMaybe embedded.initial (stored >>= fromDynamic)))
         -- Named after the place, to tell apart the subscriptions of several
         -- uses of one component.
-        subscriptionsIn at = prefixed (show here <> " ") (sendInner <$> embedded.subscriptions at)
+        subscriptionsIn at = prefixed (T.pack (show here) <> " ") (sendInner <$> embedded.subscriptions at)
      in Expansion
           { tree = inside.tree
           , store =
@@ -312,7 +314,7 @@ data Contents msg = Contents
   { trees :: [Html (Routed msg)]
   , store :: Store msg
   , effects :: Cmd (Routed msg)
-  , warnings :: [String]
+  , warnings :: [Text]
   }
 
 
@@ -326,13 +328,13 @@ unmountAll :: Store msg -> Cmd (Routed msg)
 unmountAll store = unmountHere store <> foldMap unmountAll store.children
 
 
-duplicateKey :: String -> String -> String
+duplicateKey :: Text -> Text -> Text
 duplicateKey tag key =
-  "Two children of <" <> tag <> "> have the key " <> show key
+  "Two children of <" <> tag <> "> have the key " <> T.pack (show key)
     <> ". Keys must be unique among siblings: one of the two is treated as new each time, and components in them share their state."
 
 
-fragmentInLazy :: String
+fragmentInLazy :: Text
 fragmentInLazy =
   "A fragment is directly inside lazy, so only its first node is shown. Put lazy around each node instead, or an element around the fragment."
 

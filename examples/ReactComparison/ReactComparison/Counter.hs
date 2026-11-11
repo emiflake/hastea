@@ -10,6 +10,8 @@ module ReactComparison.Counter
   )
 where
 
+import Data.Text qualified as T
+
 import Hastea.Component
 import Hastea.Html qualified as H
 import Hastea.Html.Events (onClick)
@@ -26,4 +28,4 @@ counter = component initial update view
   update Pressed count = (count + 1, [])
 
   view () count =
-    H.button [onClick Pressed] [H.text ("You pressed me " <> show count <> " times")]
+    H.button [onClick Pressed] [H.text ("You pressed me " <> T.pack (show count) <> " times")]

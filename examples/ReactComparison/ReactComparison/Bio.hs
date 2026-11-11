@@ -13,6 +13,10 @@ module ReactComparison.Bio
   )
 where
 
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
+import Data.Text qualified as T
+
 import Hastea.Cmd (Cmd)
 import Hastea.Component
 import Hastea.Html qualified as H
@@ -22,15 +26,15 @@ import Hastea.Http qualified as Http
 
 
 data Page = Page
-  { person :: String
-  , bio :: Maybe String
+  { person :: Text
+  , bio :: Maybe Text
   -- ^ 'Nothing' while it is being fetched.
   }
 
 
 data Msg
-  = PersonChanged String
-  | BioFetched String (Either Http.Error String)
+  = PersonChanged Text
+  | BioFetched Text (Either Http.Error Text)
 
 
 bioPage :: Component () Page Msg out
@@ -53,11 +57,11 @@ bioPage = (component initial update view){onMount}
           [A.value page.person, onChange PersonChanged]
           [H.option [A.value name] [H.text name] | name <- ["Alice", "Bob", "Taylor"]]
       , H.hr []
-      , H.p [] [H.i [] [H.text (maybe "Loading..." id page.bio)]]
+      , H.p [] [H.i [] [H.text (fromMaybe "Loading..." page.bio)]]
       ]
 
-  describe problem = "Could not fetch the bio: " <> show problem
+  describe problem = "Could not fetch the bio: " <> T.pack (show problem)
 
 
-fetchBio :: String -> Cmd Msg
+fetchBio :: Text -> Cmd Msg
 fetchBio person = Http.get ("bios/" <> person <> ".txt") (BioFetched person)

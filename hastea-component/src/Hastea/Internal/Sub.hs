@@ -16,13 +16,15 @@ import Data.IORef
 import Data.List (mapAccumL)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Typeable (Typeable, eqT, (:~:) (Refl))
 
 
 {- | Sources of messages that an application listens to for as long as it
 asks for them: each with a name. See "Hastea.Sub".
 -}
-newtype Sub msg = Sub [(String, Source msg)]
+newtype Sub msg = Sub [(Text, Source msg)]
 
 
 {- | A way to start a source of values, which returns the way to stop it, and
@@ -48,7 +50,7 @@ instance Monoid (Sub msg) where
 
 -- | Put a prefix before the name of every source, to tell apart the same
 -- subscription made in different places.
-prefixed :: String -> Sub msg -> Sub msg
+prefixed :: Text -> Sub msg -> Sub msg
 prefixed prefix (Sub sources) = Sub [(prefix <> name, source) | (name, source) <- sources]
 
 
@@ -58,7 +60,7 @@ data Running msg = forall a. Typeable a => Running (IORef (a -> Maybe msg)) (IO 
 
 
 -- | The sources that are currently running.
-newtype Manager msg = Manager (IORef (Map String (Running msg)))
+newtype Manager msg = Manager (IORef (Map Text (Running msg)))
 
 
 newManager :: IO (Manager msg)
@@ -80,7 +82,7 @@ sync dispatch (Manager runningRef) sub = do
   forM_ (running `Map.withoutKeys` Map.keysSet wanted) $ \(Running _ stop) -> stop
   Map.traverseWithKey (ensure running) wanted >>= writeIORef runningRef
  where
-  ensure :: Map String (Running msg) -> String -> Source msg -> IO (Running msg)
+  ensure :: Map Text (Running msg) -> Text -> Source msg -> IO (Running msg)
   ensure running name (Source start handler) = case Map.lookup name running of
     Just existing | Just update <- retarget handler existing -> existing <$ update
     existing -> do
@@ -101,9 +103,9 @@ retarget handler (Running (ref :: IORef (b -> Maybe msg)) _) =
 {- | The sources of a subscription by name. When a name occurs more than once,
 the occurrences are numbered, so that each one runs separately.
 -}
-named :: Sub msg -> Map String (Source msg)
+named :: Sub msg -> Map Text (Source msg)
 named (Sub sources) = Map.fromList (snd (mapAccumL number Map.empty sources))
  where
   number seen (name, source) =
     let count = Map.findWithDefault (0 :: Int) name seen
-     in (Map.insert name (count + 1) seen, (name <> "#" <> show count, source))
+     in (Map.insert name (count + 1) seen, (name <> "#" <> T.pack (show count), source))

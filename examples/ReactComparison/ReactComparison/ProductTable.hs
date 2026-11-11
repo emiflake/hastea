@@ -8,9 +8,10 @@ module ReactComparison.ProductTable
   )
 where
 
-import Data.Char (toLower)
 import Data.Function (on)
-import Data.List (groupBy, isInfixOf)
+import Data.List (groupBy)
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Component
 import Hastea.Html (Html)
@@ -20,10 +21,10 @@ import Hastea.Html.Events (onCheck, onInput)
 
 
 data Product = Product
-  { category :: String
-  , price :: String
+  { category :: Text
+  , price :: Text
   , stocked :: Bool
-  , name :: String
+  , name :: Text
   }
 
 
@@ -40,13 +41,13 @@ products =
 
 -- | What the user is filtering by.
 data Filter = Filter
-  { text :: String
+  { text :: Text
   , inStockOnly :: Bool
   }
 
 
 data Msg
-  = FilterTextChanged String
+  = FilterTextChanged Text
   | InStockOnlyChanged Bool
 
 
@@ -70,7 +71,7 @@ filterableProductTable = component initial update view
 
 matches :: Filter -> Product -> Bool
 matches current item =
-  map toLower current.text `isInfixOf` map toLower item.name
+  T.toLower current.text `T.isInfixOf` T.toLower item.name
     && (item.stocked || not current.inStockOnly)
 
 
@@ -102,7 +103,7 @@ productTable items =
       <> [H.keyed item.name (productRow item) | item <- group]
 
 
-productCategoryRow :: String -> Html msg
+productCategoryRow :: Text -> Html msg
 productCategoryRow category =
   H.tr [] [H.th [A.colSpan 2] [H.text category]]
 

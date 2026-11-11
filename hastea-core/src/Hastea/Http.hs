@@ -1,7 +1,7 @@
 {- | Commands that make HTTP requests.
 
 @
-data Msg = Loaded (Either Http.Error [String])
+data Msg = Loaded (Either Http.Error [Text])
 
 load :: Cmd Msg
 load = Http.getJson "/names.json" (Decode.list Decode.string) Loaded
@@ -20,6 +20,7 @@ module Hastea.Http
   )
 where
 
+import Data.Text (Text)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Decode (Decoder, runDecode)
@@ -29,24 +30,24 @@ import Hastea.Internal.Foreign.Types
 
 -- | A request to make.
 data Request = Request
-  { method :: String
+  { method :: Text
   -- ^ For example @\"GET\"@ or @\"POST\"@.
-  , url :: String
-  , headers :: [(String, String)]
-  , body :: Maybe String
+  , url :: Text
+  , headers :: [(Text, Text)]
+  , body :: Maybe Text
   }
 
 
 -- | Why a request did not give a result.
 data Error
   = -- | The server could not be reached, or the browser refused the request.
-    NetworkError String
+    NetworkError Text
   | -- | The server answered with a status other than 2xx. Holds the status
     -- and the body of the response.
-    BadStatus Int String
+    BadStatus Int Text
   | -- | The response was not what was expected: not JSON, or not of the
     -- right shape.
-    BadBody String
+    BadBody Text
   deriving (Eq, Show)
 
 
@@ -73,21 +74,21 @@ foreign import javascript unsafe "$1" ffi_toString :: JSVal -> JSString
 
 
 -- | Fetch a URL and pass on the body of the response as text.
-get :: String -> (Either Error String -> msg) -> Cmd msg
+get :: Text -> (Either Error Text -> msg) -> Cmd msg
 get = request . simple
 
 
 -- | Fetch a URL and decode the response as JSON.
-getJson :: String -> Decoder a -> (Either Error a -> msg) -> Cmd msg
+getJson :: Text -> Decoder a -> (Either Error a -> msg) -> Cmd msg
 getJson = requestJson . simple
 
 
-simple :: String -> Request
+simple :: Text -> Request
 simple url = Request{method = "GET", url, headers = [], body = Nothing}
 
 
 -- | Make a request and pass on the body of the response as text.
-request :: Request -> (Either Error String -> msg) -> Cmd msg
+request :: Request -> (Either Error Text -> msg) -> Cmd msg
 request details toMsg = Cmd.custom $ \dispatch -> do
   headers <- ffi_newHeaders
   mapM_ (\(name, value) -> ffi_appendHeader headers (toJSString name) (toJSString value)) details.headers

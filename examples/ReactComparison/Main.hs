@@ -6,6 +6,8 @@ one takes a single line, as in React.
 -}
 module Main where
 
+import Data.Text (Text)
+
 import Hastea.App (runView)
 import Hastea.Component (use)
 import Hastea.Html (Html)
@@ -50,7 +52,7 @@ page =
 
 
 -- | A titled box around one example.
-example :: String -> [Html msg] -> Html msg
+example :: Text -> [Html msg] -> Html msg
 example title content =
   H.article [A.className "example"] (H.h2 [A.className "example-title"] [H.text title] : content)
 

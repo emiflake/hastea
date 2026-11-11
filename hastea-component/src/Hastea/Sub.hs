@@ -22,6 +22,7 @@ module Hastea.Sub
   )
 where
 
+import Data.Text (Text)
 import Data.Typeable (Typeable)
 
 import Hastea.Internal.Sub
@@ -46,5 +47,5 @@ argument starts the source, given a function to call with each value, and
 returns the action that stops it. The last argument turns a value into a
 message, or 'Nothing' to ignore it.
 -}
-custom :: Typeable a => String -> ((a -> IO ()) -> IO (IO ())) -> (a -> Maybe msg) -> Sub msg
+custom :: Typeable a => Text -> ((a -> IO ()) -> IO (IO ())) -> (a -> Maybe msg) -> Sub msg
 custom name start handler = Sub [(name, Source start handler)]

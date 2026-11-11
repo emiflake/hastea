@@ -11,7 +11,8 @@ module ReactComparison.Quiz
   )
 where
 
-import Data.Char (toLower)
+import Data.Text (Text)
+import Data.Text qualified as T
 
 import Hastea.Cmd (Cmd)
 import Hastea.Component
@@ -23,9 +24,9 @@ import Hastea.Time qualified as Time
 
 
 data Quiz = Quiz
-  { answer :: String
+  { answer :: Text
   , status :: Status
-  , problem :: Maybe String
+  , problem :: Maybe Text
   -- ^ What was wrong with the last answer.
   }
 
@@ -35,9 +36,9 @@ data Status = Typing | Submitting | Success
 
 
 data Msg
-  = AnswerChanged String
+  = AnswerChanged Text
   | Submitted
-  | Answered (Either String ())
+  | Answered (Either Text ())
 
 
 quiz :: Component () Quiz Msg out
@@ -57,11 +58,11 @@ quiz = component initial update view
 
 
 -- | Pretend it's hitting the network.
-submitForm :: String -> Cmd Msg
+submitForm :: Text -> Cmd Msg
 submitForm answer = Time.after 1500 (Answered result)
  where
   result
-    | map toLower answer == "lima" = Right ()
+    | T.toLower answer == "lima" = Right ()
     | otherwise = Left "Good guess but a wrong answer. Try again!"
 
 
@@ -74,7 +75,7 @@ viewForm state =
         [onSubmit Submitted]
         ( [ H.textarea [A.value state.answer, onInput AnswerChanged, A.disabled submitting] []
           , H.br []
-          , H.button [A.disabled (null state.answer || submitting)] [H.text "Submit"]
+          , H.button [A.disabled (T.null state.answer || submitting)] [H.text "Submit"]
           ]
             <> [H.p [A.className "Error"] [H.text message] | Just message <- [state.problem]]
         )

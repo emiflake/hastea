@@ -15,6 +15,7 @@ module Hastea.Decode
   )
 where
 
+import Data.Text (Text)
 import Hastea.Html.Decode
 import Hastea.Internal.Foreign.Types
 
@@ -60,7 +61,7 @@ truthy = ffi_truthy
 
 
 -- | Run a decoder against a JavaScript value.
-runDecode :: Decoder a -> JSVal -> Either String a
+runDecode :: Decoder a -> JSVal -> Either Text a
 runDecode = decodeWith jsSource
 
 
