@@ -62,7 +62,7 @@ test-suite hastea-html-test
 -- The runtime: renders views to the DOM and runs the update loop.
 library
   import:          shared, wasm-only
-  hs-source-dirs:  src
+  hs-source-dirs:  hastea-core/src
   exposed-modules:
     Hastea.App
     Hastea.Async

@@ -10,10 +10,10 @@
      [[file:https://i.imgur.com/EygKvbo.gif]]
 
 * Layout
-  | ~src/~              | The ~hastea~ library (~Hastea.App~, ~Hastea.Cmd~, ~Hastea.Decode~, ~Hastea.Async~): the runtime and virtual DOM |
-  | ~hastea-html/~      | The ~hastea-html~ sublibrary and its tests: HTML elements, attributes, events and decoders. No JavaScript     |
-  | ~examples/todomvc/~ | The TodoMVC example executable, with its static files in ~www/~                                               |
-  | ~build.sh~          | Builds the example into ~dist/~                                                                               |
+  | ~hastea-core/~     | The ~hastea~ library (~Hastea.App~, ~Hastea.Root~, ~Hastea.Cmd~, ~Hastea.Decode~, ~Hastea.Async~): the runtime |
+  | ~hastea-html/~      | The ~hastea-html~ sublibrary and its tests: HTML elements, attributes, events, decoders and diffing          |
+  | ~examples/todomvc/~ | The TodoMVC example executable, with its static files in ~www/~                                              |
+  | ~build.sh~          | Builds the example into ~dist/~                                                                              |
 
 * Writing views
   ~hastea-html~ has a function for every element of the HTML standard, plus their attributes and events. It is a sublibrary of the ~hastea~ package, which re-exports its modules, so depending on ~hastea~ is enough. (To use the view layer alone, depend on ~hastea:hastea-html~.)
@@ -94,7 +94,7 @@
 * Development
   - Formatting: [[https://github.com/fourmolu/fourmolu][fourmolu]], configured in ~fourmolu.yaml~.
     #+BEGIN_SRC bash
-    fourmolu -i src hastea-html examples
+    fourmolu -i hastea-core hastea-html examples
     #+END_SRC
   - Editor support: ~hie.yaml~ points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work.
   - The code builds warning-free under ~-Wall -Wcompat~.
