@@ -31,11 +31,22 @@ as it was: a view is computed completely before anything on the page is
 changed. Likely mistakes, such as two children with the same key or an
 event that its handler could not make sense of, are written to the console
 as warnings, each one once.
+
+== Taking a view off the page
+
+'unmount' removes the view, stops the subscriptions of its components and
+runs what they ask for when they go away. Mounting on an element that
+already has a root unmounts that root first, even if it was mounted by an
+earlier run of the program in the same page. Running @main@ again in GHCi
+therefore replaces the application on the page instead of adding a second
+one.
 -}
 module Hastea.Root
   ( Root
   , mount
   , render
+  , unmount
+  , atUnmount
   )
 where
 
@@ -72,19 +83,30 @@ data Root msg = Root
   -- ^ The state of the components in the tree.
   , subscriptions :: Manager (Routed msg)
   -- ^ The running subscriptions of the components.
-  , listening :: IORef [Text]
-  -- ^ The events the container already listens for.
+  , listeners :: IORef [(Text, JSFunction)]
+  -- ^ The events the container listens for, each with its listener.
   , warned :: IORef [Text]
   -- ^ The warnings already given.
   , refreshScheduled :: IORef Bool
+  , refresh :: IORef (IO ())
+  -- ^ What 'onFrame' does: nothing, once the root is unmounted, so that a
+  -- frame that was already requested keeps nothing alive.
   , onFrame :: JSFunction
   -- ^ Shows the tree again, after a component has changed.
+  , active :: IORef Bool
+  -- ^ Whether the root is still mounted.
+  , cleanups :: IORef [IO ()]
+  -- ^ What to do when the root is unmounted, latest first.
+  , unmountCallback :: JSFunction
+  -- ^ 'unmount' as a JavaScript function, kept on the container.
   }
 
 
 {- | Take over the element with the given id. Whatever it contains is removed
 at the first 'render'. Messages from event handlers are passed to the given
 function.
+
+If the element already has a root, that root is unmounted first.
 
 Fails if there is no such element.
 -}
@@ -94,16 +116,21 @@ mount elementId dispatch =
     Nothing -> ioError (userError ("Hastea: there is no element with id " <> show elementId))
     Just container -> do
       DOM.install
+      DOM.unmountPrevious container
       given <- newIORef Nothing
       current <- newIORef Nothing
       components <- newIORef emptyStore
       subscriptions <- newManager
-      listening <- newIORef []
+      listeners <- newIORef []
       warned <- newIORef []
       refreshScheduled <- newIORef False
-      -- The callback needs the root, which needs the callback.
+      active <- newIORef True
+      cleanups <- newIORef []
+      -- The callbacks need the root, which needs the callbacks.
       refresh <- newIORef (pure ())
       onFrame <- DOM.newCallback (join (readIORef refresh))
+      unmounting <- newIORef (pure ())
+      unmountCallback <- DOM.newCallback (join (readIORef unmounting))
       let root =
             Root
               { container
@@ -112,20 +139,69 @@ mount elementId dispatch =
               , current
               , components
               , subscriptions
-              , listening
+              , listeners
               , warned
               , refreshScheduled
+              , refresh
               , onFrame
+              , active
+              , cleanups
+              , unmountCallback
               }
       writeIORef refresh $ do
         writeIORef refreshScheduled False
         readIORef given >>= mapM_ (render root)
+      writeIORef unmounting (unmount root)
+      DOM.setUnmount container unmountCallback
       pure root
+
+
+{- | Take the view off the page: remove what it shows, stop listening for its
+events, stop the subscriptions of its components, and run what the
+components ask for when they go away. Messages that arrive afterwards, from
+commands that were still running for instance, are dropped, and 'render'
+does nothing.
+
+Unmounting a root that is already unmounted does nothing.
+-}
+unmount :: Root msg -> IO ()
+unmount root = do
+  wasActive <- readIORef root.active
+  when wasActive $ do
+    writeIORef root.active False
+    DOM.clearUnmount root.container root.unmountCallback
+    writeIORef root.refresh (pure ())
+    listeners <- readIORef root.listeners
+    writeIORef root.listeners []
+    forM_ listeners $ \(event, callback) -> do
+      DOM.removeCaptureListener root.container event callback
+      DOM.freeCallback callback
+    store <- readIORef root.components
+    writeIORef root.components emptyStore
+    writeIORef root.given Nothing
+    writeIORef root.current Nothing
+    sync (route root) root.subscriptions mempty
+    DOM.removeAllChildren root.container
+    -- The messages these produce are dropped, as the root is no longer active.
+    runCmd (route root) (unmountAll store)
+    readIORef root.cleanups >>= sequence_
+    writeIORef root.cleanups []
+    DOM.freeCallback root.unmountCallback
+
+
+{- | Do something when the root is unmounted, after its view has gone: stop
+what was started alongside it, for instance. Done at once if the root is
+already unmounted.
+-}
+atUnmount :: Root msg -> IO () -> IO ()
+atUnmount root action = do
+  isActive <- readIORef root.active
+  if isActive then modifyIORef' root.cleanups (action :) else action
 
 
 -- | Show a tree, changing as little of the page as possible.
 render :: Root msg -> Html msg -> IO ()
-render root tree = guarded root "The view could not be shown" $ do
+render root tree = whenActive root $ guarded root "The view could not be shown" $ do
   writeIORef root.given (Just tree)
   expansion <- expand tree <$> readIORef root.components
   old <-
@@ -150,7 +226,7 @@ render root tree = guarded root "The view could not be shown" $ do
 
 -- Pass a message on: out of the root, or to the component it is for.
 route :: Root msg -> Routed msg -> IO ()
-route root message = guarded root "A message could not be handled" $ case message of
+route root message = whenActive root $ guarded root "A message could not be handled" $ case message of
   Out msg -> root.dispatch msg
   Local path msg -> do
     store <- readIORef root.components
@@ -165,6 +241,11 @@ route root message = guarded root "A message could not be handled" $ case messag
         writeIORef root.refreshScheduled True
         DOM.requestAnimationFrame root.onFrame
       runCmd (route root) cmd
+
+
+-- Run an action only while the root is mounted.
+whenActive :: Root msg -> IO () -> IO ()
+whenActive root action = readIORef root.active >>= \isActive -> when isActive action
 
 
 -- Run an action, and if it fails, say so in the console and carry on.
@@ -188,10 +269,10 @@ warn root warning = do
 -- Make sure the container listens for an event.
 listen :: Root msg -> Text -> IO ()
 listen root event = do
-  events <- readIORef root.listening
-  unless (event `elem` events) $ do
-    writeIORef root.listening (event : events)
-    DOM.addCaptureListener root.container event (handle root event)
+  listeners <- readIORef root.listeners
+  unless (event `elem` map fst listeners) $ do
+    callback <- DOM.addCaptureListener root.container event (handle root event)
+    writeIORef root.listeners ((event, callback) : listeners)
 
 
 -- Run the handlers for an event that happened somewhere inside the container.

@@ -21,7 +21,7 @@ import Numeric (showFFloat)
 import Hastea.Async (setTimeout)
 import Hastea.Html qualified as H
 import Hastea.Html.Events (onClick)
-import Hastea.Root (mount, render)
+import Hastea.Root (atUnmount, mount, render)
 
 
 foreign import javascript unsafe "Date.now()" dateNow :: IO Double
@@ -70,6 +70,10 @@ run = do
           , H.button [onClick handleStart] [H.text "Start"]
           , H.button [onClick handleStop] [H.text "Stop"]
           ]
+
+  -- The timer is not the root's to stop: stop it when the root goes away,
+  -- as it does when main runs again in GHCi.
+  atUnmount root handleStop
 
   setState id
 

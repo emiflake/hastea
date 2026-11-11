@@ -92,26 +92,39 @@ run application = do
   model <- newIORef initial
   running <- newManager
   renderScheduled <- newIORef False
+  stopped <- newIORef False
   -- Filled in once the root exists; the root in turn needs 'dispatch'.
   scheduleRender <- newIORef (pure ())
+  frame <- newIORef (pure ())
 
   let dispatch msg = do
-        (new, cmd) <- application.update msg <$> readIORef model
-        new `seq` writeIORef model new
-        scheduled <- readIORef renderScheduled
-        unless scheduled $ do
-          writeIORef renderScheduled True
-          join (readIORef scheduleRender)
-        sync dispatch running (application.subscriptions new)
-        runCmd dispatch cmd
+        isStopped <- readIORef stopped
+        unless isStopped $ do
+          (new, cmd) <- application.update msg <$> readIORef model
+          new `seq` writeIORef model new
+          scheduled <- readIORef renderScheduled
+          unless scheduled $ do
+            writeIORef renderScheduled True
+            join (readIORef scheduleRender)
+          sync dispatch running (application.subscriptions new)
+          runCmd dispatch cmd
 
   root <- mount application.container dispatch
   let renderNow = do
         writeIORef renderScheduled False
         readIORef model >>= render root . application.view
 
-  onFrame <- DOM.newCallback renderNow
+  writeIORef frame renderNow
+  onFrame <- DOM.newCallback (join (readIORef frame))
   writeIORef scheduleRender (DOM.requestAnimationFrame onFrame)
+  -- When something else is mounted in the same place, as when main runs
+  -- again in GHCi, the application stops, and a frame that was already
+  -- requested keeps nothing of it alive.
+  atUnmount root $ do
+    writeIORef stopped True
+    writeIORef scheduleRender (pure ())
+    writeIORef frame (pure ())
+    sync dispatch running Sub.none
   renderNow
   sync dispatch running (application.subscriptions initial)
   runCmd dispatch initialCmd

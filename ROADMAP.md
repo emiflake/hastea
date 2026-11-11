@@ -37,7 +37,7 @@ Items are grouped by how much they hurt a real application. The performance item
 ## Developer experience
 
 - [ ] **Devtools** to inspect components, state and messages.
-- [ ] **Hot reload.** Every change is a slow recompile and a full page reload that loses state.
+- [ ] **Hot reload** (partly done). GHC's wasm GHCi can run the program in the page itself (`-fghci-browser`), where `:reload` takes well under a second. Running `main` again now replaces the application instead of stacking a second one, since mounting unmounts whatever root was there. Still missing: keeping the model across a reload, keeping `foreign export` out of the modules GHCi reloads, and a command that sets this up.
 - [ ] **Syntax friction** (partly done). Element names no longer clash with ordinary names, now that the examples import them qualified (`H.div`). Still there: `use counter ()` needs the unit, and `App` and `Component` share field names.
 - [ ] **Attaching to server-rendered markup.** `renderHtml` produces markup, but the runtime cannot take it over.
 - [ ] **A testing helper for users.** The stand-in root that drives components without a page lives only in our own test suite.

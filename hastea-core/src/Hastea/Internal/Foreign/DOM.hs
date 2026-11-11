@@ -5,6 +5,9 @@ module Hastea.Internal.Foreign.DOM
     -- * Setting up
   , install
   , getElementById
+  , unmountPrevious
+  , setUnmount
+  , clearUnmount
 
     -- * Building nodes
   , Namespace
@@ -32,18 +35,21 @@ module Hastea.Internal.Foreign.DOM
     -- * Events
   , Event
   , addCaptureListener
+  , removeCaptureListener
   , eventBubbles
   , eventPath
   , preventDefault
 
     -- * Scheduling
   , newCallback
+  , freeCallback
   , requestAnimationFrame
   )
 where
 
 import Data.Coerce
 import Data.Text (Text)
+import GHC.Wasm.Prim (freeJSVal)
 import Hastea.Internal.Foreign.FFI
 import Hastea.Internal.Foreign.Types
 
@@ -85,6 +91,8 @@ foreign import javascript unsafe "Array.from(($1).childNodes)" ffi_childNodes ::
 foreign import javascript unsafe "($1).replaceWith($2)" ffi_replaceWith :: JSVal -> JSVal -> IO ()
 foreign import javascript unsafe "($1).addEventListener($2, $3, true)"
   ffi_addCaptureListener :: JSVal -> JSString -> JSFunction -> IO ()
+foreign import javascript unsafe "($1).removeEventListener($2, $3, true)"
+  ffi_removeCaptureListener :: JSVal -> JSString -> JSFunction -> IO ()
 foreign import javascript unsafe "!!($1).bubbles" ffi_eventBubbles :: JSVal -> IO Bool
 
 
@@ -98,6 +106,15 @@ foreign import javascript unsafe "($1).preventDefault()" ffi_preventDefault :: J
 foreign import javascript unsafe "window.requestAnimationFrame($1)"
   ffi_requestAnimationFrame :: JSFunction -> IO ()
 foreign import javascript unsafe "($1) == null" ffi_isNull :: JSVal -> Bool
+
+
+-- How to take Hastea off an element is kept on the element itself, so that
+-- whatever mounts there next can find it: another run of the program in the
+-- same page, as in GHCi, included.
+foreign import javascript unsafe "($1).__hasteaUnmount?.()" ffi_unmountPrevious :: JSVal -> IO ()
+foreign import javascript unsafe "($1).__hasteaUnmount = ($2)" ffi_setUnmount :: JSVal -> JSFunction -> IO ()
+foreign import javascript unsafe "if (($1).__hasteaUnmount === ($2)) delete ($1).__hasteaUnmount"
+  ffi_clearUnmount :: JSVal -> JSFunction -> IO ()
 
 
 -- SETTING UP
@@ -177,6 +194,23 @@ install = ffi_install
 
 getElementById :: Text -> IO (Maybe DOMNode)
 getElementById elemId = nullable <$> ffi_getElementById (toJSString elemId)
+
+
+{- | Call the function that 'setUnmount' left on an element, if there is one.
+It runs synchronously, so whatever it takes down is gone when this returns.
+-}
+unmountPrevious :: DOMNode -> IO ()
+unmountPrevious node = ffi_unmountPrevious (coerce node)
+
+
+-- | Leave on an element the function that takes Hastea off it again.
+setUnmount :: DOMNode -> JSFunction -> IO ()
+setUnmount node callback = ffi_setUnmount (coerce node) callback
+
+
+-- | Forget the function that 'setUnmount' left on an element, if it is still this one.
+clearUnmount :: DOMNode -> JSFunction -> IO ()
+clearUnmount node callback = ffi_clearUnmount (coerce node) callback
 
 
 -- BUILDING NODES
@@ -280,10 +314,17 @@ replaceWith old new = ffi_replaceWith (coerce old) (coerce new)
 {- | Listen for an event on a node in the capture phase, which also sees
 events on its descendants that do not bubble, such as @focus@.
 -}
-addCaptureListener :: DOMNode -> Text -> (Event -> IO ()) -> IO ()
+addCaptureListener :: DOMNode -> Text -> (Event -> IO ()) -> IO JSFunction
 addCaptureListener target event handler = do
   callback <- makeHaskellCallback1 (coerce handler)
   ffi_addCaptureListener (coerce target) (toJSString event) callback
+  pure callback
+
+
+-- | Stop listening, with the function that 'addCaptureListener' returned.
+removeCaptureListener :: DOMNode -> Text -> JSFunction -> IO ()
+removeCaptureListener target event callback =
+  ffi_removeCaptureListener (coerce target) (toJSString event) callback
 
 
 eventBubbles :: Event -> IO Bool
@@ -308,6 +349,13 @@ preventDefault = ffi_preventDefault
 -- | Turn an action into a JavaScript function that can be scheduled repeatedly.
 newCallback :: IO () -> IO JSFunction
 newCallback = makeHaskellCallback
+
+
+{- | Let go of a callback made from Haskell, and of everything it refers to.
+JavaScript must not call it afterwards.
+-}
+freeCallback :: JSFunction -> IO ()
+freeCallback (JSFunction val) = freeJSVal val
 
 
 -- | Run a callback before the browser next paints.

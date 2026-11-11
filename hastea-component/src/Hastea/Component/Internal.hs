@@ -22,6 +22,7 @@ module Hastea.Component.Internal
   , expand
   , deliver
   , subscriptionsOf
+  , unmountAll
   )
 where
 
@@ -323,7 +324,8 @@ unmountHere :: Store msg -> Cmd (Routed msg)
 unmountHere store = foldMap (\gone -> gone.unmount store.state) store.mounted
 
 
--- The same for a place and everything below it.
+-- | What the components at a place and everything below it ask for when
+-- they go away.
 unmountAll :: Store msg -> Cmd (Routed msg)
 unmountAll store = unmountHere store <> foldMap unmountAll store.children
 

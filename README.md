@@ -69,6 +69,8 @@ The design follows React, and leans on purity where Haskell allows more.
 
 `Hastea.App.runApp` is the Elm-style loop (model, update, view). It is a thin layer over `Hastea.Root` (`mount` and `render`), which shows trees, keeps the state of the components in them, and reports messages. It can serve as the base for other architectures.
 
+`Hastea.Root.unmount` takes a view off the page again: it stops listening for events, stops the components' subscriptions and runs their `onUnmount` effects. Use `atUnmount` to stop anything else you started alongside a root. Mounting on an element that already has a root unmounts the old root first, so running `main` again in GHCi replaces the application on the page rather than adding a second copy.
+
 ## When something goes wrong
 
 A view or an update function that fails does not take the page down: the failure is written to the browser console as an error and the page stays as it was, because a view is computed completely before anything on the page is changed. Likely mistakes are written to the console as warnings, each one once: two children with the same key, a fragment directly inside `lazy`, and an event that its handler could not read.
