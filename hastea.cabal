@@ -38,18 +38,15 @@ common wasm-only
   if !arch(wasm32)
     buildable: False
 
--- Everything an application is written with: HTML elements, attributes and
--- events, decoders, components, commands and subscriptions. Pure Haskell
--- with no JavaScript, so it can be rendered and tested anywhere.
+-- HTML elements, attributes and events, decoders for event data, rendering
+-- to a string and diffing. Pure Haskell with no JavaScript, so it can be
+-- used and tested anywhere.
 -- Depend on it alone with `build-depends: hastea:hastea-html`.
 library hastea-html
   import:          shared
   visibility:      public
   hs-source-dirs:  hastea-html/src
   exposed-modules:
-    Hastea.Cmd
-    Hastea.Component
-    Hastea.Component.Internal
     Hastea.Html
     Hastea.Html.Attributes
     Hastea.Html.Decode
@@ -57,22 +54,54 @@ library hastea-html
     Hastea.Html.Events
     Hastea.Html.Internal
     Hastea.Html.Render
-    Hastea.Internal.Sub
-    Hastea.Sub
 
   build-depends:
     , base        >=4.16 && <5
     , containers  >=0.6 && <0.9
+
+-- Components with state of their own, and the commands and subscriptions
+-- through which they have effects. Also pure Haskell: it describes what
+-- should happen and keeps track of state, and leaves the page to hastea.
+library hastea-component
+  import:          shared
+  visibility:      public
+  hs-source-dirs:  hastea-component/src
+  exposed-modules:
+    Hastea.Cmd
+    Hastea.Component
+    Hastea.Component.Internal
+    Hastea.Internal.Sub
+    Hastea.Sub
+
+  build-depends:
+    , base
+    , containers
+    , hastea:hastea-html
 
 test-suite hastea-html-test
   import:         shared
   type:           exitcode-stdio-1.0
   hs-source-dirs: hastea-html/test
   main-is:        Main.hs
-  other-modules:  Tables
+  other-modules:
+    Support
+    Tables
+
   build-depends:
     , base
     , hastea:hastea-html
+
+test-suite hastea-component-test
+  import:         shared
+  type:           exitcode-stdio-1.0
+
+  -- Shares the test helpers of hastea-html.
+  hs-source-dirs: hastea-component/test hastea-html/test
+  main-is:        ComponentTest.hs
+  other-modules:  Support
+  build-depends:
+    , base
+    , hastea:{hastea-component, hastea-html}
 
 -- The runtime: renders views to the DOM and runs the update loop.
 library
@@ -107,7 +136,7 @@ library
     , base              >=4.20 && <5
     , containers        >=0.6 && <0.9
     , ghc-experimental
-    , hastea:hastea-html
+    , hastea:{hastea-component, hastea-html}
 
 executable hastea-todomvc
   import:         shared, wasm-only

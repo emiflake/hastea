@@ -43,7 +43,8 @@ where
 
 import Data.Typeable (Typeable)
 
-import Hastea.Html.Internal
+import Hastea.Component.Internal (Effect (..), Embedded (..), embed)
+import Hastea.Html (Html)
 import Hastea.Sub (Sub)
 
 
@@ -64,7 +65,7 @@ data Component props state msg out = Component
 -- | Place a component in a view.
 use :: (Typeable state, Typeable msg) => Component props state msg out -> props -> Html out
 use component props =
-  Embed . Mount $
+  embed
     Embedded
       { initial = component.initial props
       , view = component.view props

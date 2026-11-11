@@ -10,14 +10,15 @@
      [[file:https://i.imgur.com/EygKvbo.gif]]
 
 * Layout
-  | ~hastea-core/~     | The ~hastea~ library (~Hastea.App~, ~Hastea.Root~, ~Hastea.Cmd~, ~Hastea.Sub~, ...): the runtime                |
-  | ~hastea-html/~      | The ~hastea-html~ sublibrary and its tests: everything an app is written with. Pure Haskell, no JavaScript   |
+  | ~hastea-html/~      | The ~hastea-html~ sublibrary: HTML elements, attributes, events, decoders, rendering and diffing. Pure Haskell |
+  | ~hastea-component/~ | The ~hastea-component~ sublibrary: components, commands and subscriptions. Pure Haskell, builds on ~hastea-html~ |
+  | ~hastea-core/~      | The ~hastea~ library: the runtime that puts views on the page (~Hastea.App~, ~Hastea.Root~, ~Hastea.Time~, ...)   |
   | ~examples/todomvc/~ | The TodoMVC example executable, with its static files in ~www/~                                              |
   | ~examples/ReactComparison/~ | Examples from the React documentation rewritten with Hastea, and a table of the differences ([[file:examples/ReactComparison/README.md][README]]) |
   | ~build.sh~          | Builds the example into ~dist/~                                                                              |
 
 * Writing views
-  ~hastea-html~ has a function for every element of the HTML standard, plus their attributes and events. It is a sublibrary of the ~hastea~ package, which re-exports its modules, so depending on ~hastea~ is enough. (To use it alone, for example to render views on a server, depend on ~hastea:hastea-html~.)
+  ~hastea-html~ has a function for every element of the HTML standard, plus their attributes and events. It is a sublibrary of the ~hastea~ package, which re-exports the modules of its sublibraries, so depending on ~hastea~ is enough. (To use it alone, for example to render views on a server, depend on ~hastea:hastea-html~.)
 
   #+BEGIN_SRC haskell
   import Prelude hiding (div)
@@ -55,7 +56,7 @@
   ~Hastea.App.runApp~ is the Elm-style loop (model, update, view). It is a thin layer over ~Hastea.Root~ (~mount~ and ~render~), which shows trees, keeps the state of the components in them, and reports messages. It can serve as the base for other architectures.
 
 * Components
-  A view can contain /components/ (~Hastea.Component~): parts that keep their own state, as in React. A component is a record of pure functions, and ~use~ places it in a view. Whatever shows the view keeps the state, one per place the component is used in.
+  A view can contain /components/ (~Hastea.Component~, in the ~hastea-component~ sublibrary): parts that keep their own state, as in React. A component is a record of pure functions, and ~use~ places it in a view. Whatever shows the view keeps the state, one per place the component is used in.
 
   #+BEGIN_SRC haskell
   counter :: Component () Int Msg out
@@ -132,7 +133,7 @@
    python3 -m http.server -d dist 8080  # then open http://localhost:8080
    #+END_SRC
 
-   The tests cover ~hastea-html~ and run under ~wasmtime~, which is part of the toolchain.
+   The tests cover the two pure sublibraries, ~hastea-html~ and ~hastea-component~, and run under ~wasmtime~, which is part of the toolchain.
 
    The example page fetches [[https://github.com/bjorn3/browser_wasi_shim][browser_wasi_shim]] from jsDelivr when it loads, so the browser needs internet access.
 
@@ -141,7 +142,7 @@
 * Development
   - Formatting: [[https://github.com/fourmolu/fourmolu][fourmolu]], configured in ~fourmolu.yaml~.
     #+BEGIN_SRC bash
-    fourmolu -i hastea-core hastea-html examples
+    fourmolu -i hastea-core hastea-html hastea-component examples
     #+END_SRC
   - Editor support: ~hie.yaml~ points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work.
   - The code builds warning-free under ~-Wall -Wcompat~.

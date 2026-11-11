@@ -5,8 +5,7 @@ outside the model (waiting, asking for the time, moving the focus), @update@
 returns a command describing it next to the new model. The runtime runs the
 command, and any message it produces comes back through @update@.
 
-Ready-made commands are in "Hastea.Time" and "Hastea.Dom", in the @hastea@
-library.
+Ready-made commands are in "Hastea.Time" and "Hastea.Dom".
 -}
 module Hastea.Cmd
   ( Cmd

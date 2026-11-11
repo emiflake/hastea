@@ -6,7 +6,14 @@ ordinary tree; 'deliver' gives a message to the component it is for. What
 remains for "Hastea.Root" is to hold the store and call these.
 -}
 module Hastea.Component.Internal
-  ( Routed (..)
+  ( -- * Components in a tree
+    Mount (..)
+  , Embedded (..)
+  , Effect (..)
+  , embed
+
+    -- * Keeping their state
+  , Routed (..)
   , Path
   , Segment (..)
   , Store
@@ -17,17 +24,83 @@ module Hastea.Component.Internal
   )
 where
 
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.List (mapAccumL)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Typeable (Typeable)
 
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Html.Internal
 import Hastea.Internal.Sub (Sub, prefixed)
+
+
+-- | A component placed in a tree, with its state and message types hidden.
+data Mount msg
+  = forall state inner. (Typeable state, Typeable inner) => Mount (Embedded state inner msg)
+
+
+-- | Only what the component tells its surroundings is changed: its own
+-- messages stay inside.
+instance Functor Mount where
+  fmap f (Mount embedded) =
+    Mount
+      Embedded
+        { initial = embedded.initial
+        , view = embedded.view
+        , update = \msg state -> second (map (fmap f)) (embedded.update msg state)
+        , subscriptions = embedded.subscriptions
+        }
+
+
+{- | A component as it sits in a tree of messages @msg@: its own state is
+@state@ and its own messages are @inner@.
+-}
+data Embedded state inner msg = Embedded
+  { initial :: state
+  -- ^ The state to start with.
+  , view :: state -> Html inner
+  , update :: inner -> state -> (state, [Effect inner msg])
+  , subscriptions :: state -> Sub inner
+  }
+
+
+-- | Something a component's @update@ asks for besides a new state.
+data Effect msg out
+  = -- | Run a command. Its messages come back to the component.
+    Run (Cmd msg)
+  | -- | Tell whoever uses the component that something happened.
+    Emit out
+
+
+instance Functor (Effect msg) where
+  fmap _ (Run cmd) = Run cmd
+  fmap f (Emit out) = Emit (f out)
+
+
+{- | A component as a node of a tree. "Hastea.Html" does not know about
+components, so where nothing keeps their state (in "Hastea.Html.Render",
+for example) the node is shown as the component's initial view, without its
+event handlers.
+-}
+embed :: (Typeable state, Typeable inner) => Embedded state inner msg -> Html msg
+embed embedded = Extend (Extension (Mount embedded)) (inert (embedded.view embedded.initial))
+ where
+  inert :: Html a -> Html b
+  inert (Element tag attributes children) = Element tag (mapMaybe plain attributes) (map inert children)
+  inert (Text content) = Text content
+  inert (Lazy _ tree) = inert tree
+  inert (Keyed key tree) = Keyed key (inert tree)
+  inert (Extend _ fallback) = inert fallback
+
+  plain :: Attribute a -> Maybe (Attribute b)
+  plain (Attribute key value) = Just (Attribute key value)
+  plain (BoolAttribute key value) = Just (BoolAttribute key value)
+  plain (Property key value) = Just (Property key value)
+  plain Listener{} = Nothing
 
 
 {- | A message from an expanded tree: either one for whoever shows the tree,
@@ -134,7 +207,17 @@ go send path tree store = case tree of
      in ( Element tag (map (fmap send) attributes) [expanded | (_, (expanded, _)) <- results]
         , emptyStore{children = Map.fromList [(key, below) | (key, (_, below)) <- results, not (isEmpty below)]}
         )
-  Embed (Mount embedded) ->
+  -- An extension of some other kind is shown as what it falls back to.
+  Extend extension fallback -> case fromExtension extension of
+    Nothing -> go send path fallback store
+    Just mount -> mounted mount
+ where
+  segment :: String -> Int -> Html m -> (Int, Segment)
+  segment tag unkeyed (Keyed key _) = (unkeyed, Named tag key)
+  segment tag unkeyed _ = (unkeyed + 1, At tag unkeyed)
+
+  mounted :: Mount m -> (Html (Routed top), Store top)
+  mounted (Mount embedded) =
     let here = reverse path
         -- A state of another type belongs to a component that was here before.
         current = store.state >>= \stored -> (,) stored <$> fromDynamic stored
@@ -163,10 +246,6 @@ go send path tree store = case tree of
             , children = Map.fromList [(Inside, below) | not (isEmpty below)]
             }
         )
- where
-  segment :: String -> Int -> Html m -> (Int, Segment)
-  segment tag unkeyed (Keyed key _) = (unkeyed, Named tag key)
-  segment tag unkeyed _ = (unkeyed + 1, At tag unkeyed)
 
 
 {- | Give a message to the component at a path. Returns the store with the
