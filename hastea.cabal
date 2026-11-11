@@ -85,31 +85,37 @@ library hastea-component
     , hastea:hastea-html
     , text
 
+-- The test harness and helpers that both test suites use. A library of its
+-- own, so that no module belongs to two components (which HLS cannot load).
+library test-support
+  import:          shared
+  hs-source-dirs:  hastea-html/support
+  exposed-modules: Support
+  build-depends:
+    , base
+    , hastea:hastea-html
+    , text
+
 test-suite hastea-html-test
   import:         shared
   type:           exitcode-stdio-1.0
   hs-source-dirs: hastea-html/test
   main-is:        Main.hs
-  other-modules:
-    Support
-    Tables
-
+  other-modules:  Tables
   build-depends:
     , base
-    , hastea:hastea-html
+    , hastea:{hastea-html, test-support}
     , text
 
 test-suite hastea-component-test
   import:         shared
   type:           exitcode-stdio-1.0
 
-  -- Shares the test helpers of hastea-html.
-  hs-source-dirs: hastea-component/test hastea-html/test
+  hs-source-dirs: hastea-component/test
   main-is:        ComponentTest.hs
-  other-modules:  Support
   build-depends:
     , base
-    , hastea:{hastea-component, hastea-html}
+    , hastea:{hastea-component, hastea-html, test-support}
     , text
 
 -- The runtime: renders views to the DOM and runs the update loop.

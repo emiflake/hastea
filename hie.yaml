@@ -1,18 +1,37 @@
+# Editor support (HLS). HLS cannot use GHC's wasm cross-compiler, so the
+# package is loaded with your ordinary GHC, through cabal.project.hls.
+#
+# That covers the pure Haskell: hastea-html, hastea-component and their
+# tests. hastea-core, the examples and the benchmark use the wasm backend's
+# JavaScript FFI, which an ordinary GHC cannot compile, so HLS leaves them
+# alone. hastea-cli/ has a hie.yaml of its own.
 cradle:
-  cabal:
-    - path: "hastea-core/src"
-      component: "lib:hastea"
-    - path: "hastea-html/src"
-      component: "hastea:lib:hastea-html"
-    - path: "hastea-html/test"
-      component: "hastea:test:hastea-html-test"
-    - path: "hastea-component/src"
-      component: "hastea:lib:hastea-component"
-    - path: "hastea-component/test"
-      component: "hastea:test:hastea-component-test"
-    - path: "examples/todomvc"
-      component: "exe:hastea-todomvc"
-    - path: "examples/ReactComparison"
-      component: "exe:hastea-react-comparison"
-    - path: "benchmark"
-      component: "exe:hastea-benchmark"
+  multi:
+    - path: "./hastea-core"
+      config:
+        cradle:
+          none:
+    - path: "./examples"
+      config:
+        cradle:
+          none:
+    - path: "./benchmark"
+      config:
+        cradle:
+          none:
+    - path: "./"
+      config:
+        cradle:
+          cabal:
+            cabalProject: cabal.project.hls
+            components:
+              - path: "./hastea-html/src"
+                component: "hastea:lib:hastea-html"
+              - path: "./hastea-html/test"
+                component: "hastea:test:hastea-html-test"
+              - path: "./hastea-html/support"
+                component: "hastea:lib:test-support"
+              - path: "./hastea-component/src"
+                component: "hastea:lib:hastea-component"
+              - path: "./hastea-component/test"
+                component: "hastea:test:hastea-component-test"

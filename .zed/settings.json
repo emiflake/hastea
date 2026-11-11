@@ -1,0 +1,16 @@
+// Zed settings for this project. See hie.yaml for what HLS can load here.
+{
+  "lsp": {
+    "hls": {
+      "initialization_options": {
+        "haskell": {
+          // Load all components together (cabal's multi-repl), so that a
+          // component and the components that depend on it share one copy
+          // of it: the test suites use both hastea-html and test-support,
+          // which depends on hastea-html.
+          "sessionLoading": "multipleComponents"
+        }
+      }
+    }
+  }
+}

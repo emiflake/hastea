@@ -1,0 +1,8 @@
+-- For editors only. HLS cannot use GHC's wasm cross-compiler, so hie.yaml
+-- points it here, where the package is loaded with your ordinary GHC
+-- instead. Only the parts that are pure Haskell build that way: the
+-- hastea-html and hastea-component sublibraries and their tests. The rest
+-- uses the JavaScript FFI of the wasm backend, and is not buildable here
+-- (see `common wasm-only` in hastea.cabal).
+packages: .
+tests: True

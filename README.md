@@ -188,7 +188,9 @@ If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-ca
   fourmolu -i hastea-core hastea-html hastea-component examples hastea-cli
   ```
 
-- Editor support: `hie.yaml` points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work. `hastea-cli/` has its own `hie.yaml` and is loaded with your ordinary GHC.
+- Editor support: HLS cannot use GHC's wasm cross-compiler, so `hie.yaml` has it load the package with your ordinary GHC, through `cabal.project.hls` (on Windows, run the editor's language server inside WSL, as Zed's and VS Code's remote modes do). That covers the pure Haskell: `hastea-html`, `hastea-component`, their tests and the helpers they share (`hastea-html/support/`). `hastea-core`, the examples and the benchmark use the wasm backend's JavaScript FFI, which an ordinary GHC cannot compile, so HLS leaves them alone; `hastea dev`'s GHCi prompt (`:t`, `:i`) is the way to ask about them. `hastea-cli/` has its own `hie.yaml`.
+
+  Set HLS's `sessionLoading` to `multipleComponents`, so that the test suites and the libraries they use are loaded together; otherwise an error in `hastea-html` keeps its tests from loading at all. `.zed/settings.json` does this for Zed; in VS Code, it is the `haskell.sessionLoading` setting.
 
 - The code builds warning-free under `-Wall -Wcompat`.
 
