@@ -20,6 +20,7 @@ TodoMVC example (under `examples/todomvc`):
 | `examples/todomvc/` | The TodoMVC example executable, with its static files in `www/` |
 | `examples/ReactComparison/` | Examples from the React documentation rewritten with Hastea, and a table of the differences ([README](examples/ReactComparison/README.md)) |
 | `benchmark/` | A table of rows written with Hastea and with React, and a script that measures both ([results](benchmark/README.md)) |
+| `vendor/` | Third-party code shipped with every page: the WASI shim, bundled into one file |
 | `build.sh` | Builds the example into `dist/` |
 
 ## Writing views
@@ -133,7 +134,7 @@ You need the `wasm32-wasi-ghc` cross-compiler and `cabal` from [ghc-wasm-meta](h
   nix shell 'gitlab:haskell-wasm/ghc-wasm-meta?host=gitlab.haskell.org'
   ```
 
-- Without Nix (x86<sub>64</sub>/aarch64 Linux, macOS):
+- Without Nix (x86_64/aarch64 Linux, macOS):
 
   ```bash
   curl https://gitlab.haskell.org/haskell-wasm/ghc-wasm-meta/-/raw/master/bootstrap.sh | sh
@@ -164,7 +165,7 @@ python3 -m http.server -d dist 8080  # then open http://localhost:8080
 
 The tests cover the two pure sublibraries, `hastea-html` and `hastea-component`, and run under `wasmtime`, which is part of the toolchain.
 
-The example page fetches [browser<sub>wasishim</sub>](https://github.com/bjorn3/browser_wasi_shim) from jsDelivr when it loads, so the browser needs internet access.
+A page is self-contained: `dist/` holds everything it loads, including a bundled copy of [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim) from `vendor/`, so it works without access to any other host.
 
 If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-cabal`, since `cabal.project` selects the wasm compiler; for the example, run `CABAL=cabal ./build.sh`.
 

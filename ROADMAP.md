@@ -32,7 +32,7 @@ Items are grouped by how much they hurt a real application. The performance item
 - [ ] **An unchanged list is still walked in full.** Selecting one row of 1,000 takes 11 ms in the benchmark, against 3 ms for React, though only two rows change.
 - [ ] **Every render expands the whole tree again** before diffing, apart from `lazy` subtrees.
 - [ ] **Rendering is all-or-nothing per frame.** Long renders cannot be interrupted or given a priority.
-- [ ] **Download size.** The benchmark page is a 2.3 MB wasm module, and loading it takes twice as long as the React page. Nothing has been done yet to shrink it (optimisation flags, `wasm-opt`, compression).
+- [ ] **Download size.** The benchmark page is a 2.3 MB wasm module. `wasm-opt -Oz` brings it to 1.2 MB and gzip to 0.6 MB, but neither is part of the build yet. The page no longer depends on a CDN: the WASI shim is bundled and everything is fetched at once.
 
 ## Developer experience
 

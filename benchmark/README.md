@@ -9,7 +9,7 @@ The table of rows that web frameworks are commonly measured with, written with H
 ```bash
 ./build.sh benchmark               # in the repository root
 cd benchmark
-npm install                        # React, and a local copy of the WASI shim
+npm install                        # React, to compare with
 node run.cjs                       # or: node run.cjs 20, for 20 runs of each operation
 ```
 
@@ -23,7 +23,7 @@ Median of 10 runs, in milliseconds, from the click until the browser has painted
 
 | Operation | Hastea | React | Hastea / React |
 | --- | ---: | ---: | ---: |
-| Load the page | 95.0 | 46.0 | 2.1× |
+| Load the page | 60.0 | 41.0 | 1.5× |
 | Create 1,000 rows | 74.6 | 34.8 | 2.1× |
 | Replace all 1,000 rows | 71.8 | 37.6 | 1.9× |
 | Update every 10th row of 1,000 | 32.3 | 12.6 | 2.6× |
@@ -41,11 +41,11 @@ Median of 10 runs, in milliseconds, from the click until the browser has painted
 
 ## What the numbers say
 
-Hastea is about twice as slow as React on most operations, and its download is 16 times larger.
+Hastea is about twice as slow as React on most operations, and its download is 16 times larger. (Loading is measured as the median over fresh browser contexts; the other rows are from an earlier run of the same code.)
 
 - **Building rows is within a factor of two**, and at 10,000 rows almost level, because that many rows are mostly work for the browser.
 - **Selecting a row is the furthest behind**, at 11 ms against 3 ms. Only two rows change, but every render goes over all 1,000 rows to find that out: the view is computed, expanded and matched by key, and each `lazy` row is compared with the last one.
-- **Loading the page takes twice as long**, which is the time to fetch and start a 2.3 MB WebAssembly module.
+- **Loading the page takes half as long again**, which is the time to fetch and start a 2.3 MB WebAssembly module. This is with a server on the same machine; over a network the size of the download matters far more. The page fetches everything it needs at once and from its own host: the WASI shim is bundled rather than loaded from a CDN.
 
 ## How it got here
 

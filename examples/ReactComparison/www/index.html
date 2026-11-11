@@ -3,6 +3,10 @@
         <meta charset="utf-8">
         <title>React examples in Hastea</title>
         <link rel="stylesheet" type="text/css" href="index.css">
+        <!-- Start fetching everything at once, rather than each file when the one before asks for it. -->
+        <link rel="preload" href="hastea.wasm" as="fetch" type="application/wasm" crossorigin>
+        <link rel="modulepreload" href="browser_wasi_shim.js">
+        <link rel="modulepreload" href="ghc_wasm_jsffi.js">
     </head>
     <body>
         <h1>React examples in Hastea</h1>

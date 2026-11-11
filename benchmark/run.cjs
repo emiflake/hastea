@@ -70,15 +70,22 @@ const median = (numbers) => {
 };
 
 async function measure(browser, url) {
+  // Loading is measured in a fresh browser context each time, so that
+  // nothing comes from a cache.
+  const loads = [];
+  for (let run = 0; run < runs + 2; run++) {
+    const context = await browser.newContext();
+    const fresh = await context.newPage();
+    const start = Date.now();
+    await fresh.goto(url);
+    await fresh.waitForSelector("#run");
+    if (run >= 2) loads.push(Date.now() - start);
+    await context.close();
+  }
   const page = await browser.newPage();
-  // The Hastea page loads this from a CDN; use the local copy instead.
-  await page.route("https://cdn.jsdelivr.net/npm/@bjorn3/browser_wasi_shim@*/dist/**", (route) =>
-    route.fulfill({ path: path.join(modules, "@bjorn3", "browser_wasi_shim", "dist", route.request().url().split("/dist/")[1]), contentType: "text/javascript" }),
-  );
-  const start = Date.now();
   await page.goto(url);
   await page.waitForSelector("#run");
-  const results = { "Load the page": Date.now() - start };
+  const results = { "Load the page": median(loads) };
   for (const operation of operations) {
     const times = [];
     // The first two runs are to warm up.
