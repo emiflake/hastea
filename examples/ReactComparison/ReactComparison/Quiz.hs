@@ -51,7 +51,7 @@ initial = Model{answer = "", problem = Nothing, status = Typing}
 update :: Msg -> Model -> (Model, Cmd Msg)
 update msg model = case msg of
   AnswerChanged newAnswer -> (model{answer = newAnswer}, Cmd.none)
-  Submitted -> (model{status = Submitting}, submitForm (answer model))
+  Submitted -> (model{status = Submitting}, submitForm model.answer)
   Answered (Right ()) -> (model{status = Success}, Cmd.none)
   Answered (Left message) -> (model{status = Typing, problem = Just message}, Cmd.none)
 
@@ -67,7 +67,7 @@ submitForm given = Time.after 1500 (Answered result)
 
 view :: Model -> Html Msg
 view model
-  | status model == Success = h1 [] [text "That's right!"]
+  | model.status == Success = h1 [] [text "That's right!"]
   | otherwise =
       div
         []
@@ -76,16 +76,16 @@ view model
         , form
             [onSubmit Submitted]
             ( [ textarea
-                  [ value (answer model)
+                  [ value model.answer
                   , onInput AnswerChanged
-                  , disabled (status model == Submitting)
+                  , disabled (model.status == Submitting)
                   ]
                   []
               , br []
               , button
-                  [disabled (null (answer model) || status model == Submitting)]
+                  [disabled (null model.answer || model.status == Submitting)]
                   [text "Submit"]
               ]
-                <> [p [className "Error"] [text message] | Just message <- [problem model]]
+                <> [p [className "Error"] [text message] | Just message <- [model.problem]]
             )
         ]

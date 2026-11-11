@@ -18,7 +18,7 @@ import Prelude hiding (div)
 
 import Debug.Trace (trace)
 
-import Hastea.Html hiding (address)
+import Hastea.Html
 import Hastea.Html.Attributes (value)
 import Hastea.Html.Events (onInput)
 
@@ -48,11 +48,11 @@ view :: Model -> Html Msg
 view model =
   div
     []
-    [ label [] [text "Name: ", input [value (name model), onInput NameChanged]]
-    , label [] [text "Address: ", input [value (address model), onInput AddressChanged]]
+    [ label [] [text "Name: ", input [value model.name, onInput NameChanged]]
+    , label [] [text "Address: ", input [value model.address, onInput AddressChanged]]
     , -- Typing an address leaves the name untouched, so the greeting is
       -- neither computed nor compared with the page.
-      lazy greeting (name model)
+      lazy greeting model.name
     ]
 
 

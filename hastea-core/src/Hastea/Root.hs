@@ -68,31 +68,31 @@ mount elementId dispatch =
 -- | Show a tree, changing as little of the page as possible.
 render :: Root msg -> Html msg -> IO ()
 render root new =
-  readIORef (current root) >>= \case
+  readIORef root.current >>= \case
     Nothing -> do
-      DOM.removeAllChildren (container root)
-      create (listen root) new >>= DOM.appendChild (container root)
-      writeIORef (current root) (Just new)
+      DOM.removeAllChildren root.container
+      create (listen root) new >>= DOM.appendChild root.container
+      writeIORef root.current (Just new)
     Just old -> do
       let (patch, new') = diff old new
-      DOM.childAt (container root) 0 >>= mapM_ (\node -> commit (listen root) node patch)
-      writeIORef (current root) (Just new')
+      DOM.childAt root.container 0 >>= mapM_ (\node -> commit (listen root) node patch)
+      writeIORef root.current (Just new')
 
 
 -- Make sure the container listens for an event.
 listen :: Root msg -> String -> IO ()
 listen root event = do
-  events <- readIORef (listening root)
+  events <- readIORef root.listening
   unless (event `elem` events) $ do
-    writeIORef (listening root) (event : events)
-    DOM.addCaptureListener (container root) event (handle root event)
+    writeIORef root.listening (event : events)
+    DOM.addCaptureListener root.container event (handle root event)
 
 
 -- Run the handlers for an event that happened somewhere inside the container.
 handle :: Root msg -> String -> DOM.Event -> IO ()
 handle root event val = do
-  path <- DOM.eventPath (container root) val
-  tree <- readIORef (current root)
+  path <- DOM.eventPath root.container val
+  tree <- readIORef root.current
   bubbles <- DOM.eventBubbles val
   -- The elements from the target outwards. An event that does not bubble
   -- only concerns its target.
@@ -102,10 +102,10 @@ handle root event val = do
   run [] = pure ()
   run (handlers : outer) = do
     forM_ handlers $ \(options, decoder) -> do
-      when (preventDefault options) (DOM.preventDefault val)
+      when options.preventDefault (DOM.preventDefault val)
       -- A handler whose decoder fails does not apply to this event.
-      mapM_ (dispatch root) (runDecode decoder val)
-    unless (any (stopPropagation . fst) handlers) (run outer)
+      mapM_ root.dispatch (runDecode decoder val)
+    unless (any (\(options, _) -> options.stopPropagation) handlers) (run outer)
 
 
 {- | The attributes of the elements along a path of child positions,

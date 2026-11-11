@@ -3,7 +3,7 @@
 A view produces messages when the user does something with it. A
 subscription produces messages on its own: as time passes, for example. An
 application says which subscriptions it wants as a function of its model
-(see 'Hastea.App.appSubscriptions'); the runtime starts and stops them as
+(see the @subscriptions@ field of 'Hastea.App.App'); the runtime starts and stops them as
 that answer changes.
 
 @

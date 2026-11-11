@@ -67,16 +67,16 @@ runDecode = decodeWith jsSource
 jsSource :: Source JSVal
 jsSource =
   Source
-    { sourceString = \val ->
+    { string = \val ->
         if ffi_isString val then Just (fromJSString (ffi_toString val)) else Nothing
-    , sourceNumber = \val ->
+    , number = \val ->
         if ffi_isNumber val then Just (ffi_toNumber val) else Nothing
-    , sourceBool = \val ->
+    , bool = \val ->
         if ffi_isBoolean val then Just (ffi_truthy val) else Nothing
-    , sourceIsNull = ffi_isNull
-    , sourceList = \val ->
+    , isNull = ffi_isNull
+    , list = \val ->
         if ffi_isArray val then Just (fromJSArray (JSArray val)) else Nothing
-    , sourceField = \key val ->
+    , field = \key val ->
         let jsKey = toJSString key
          in if ffi_isObject val && jsKey `ffi_keyIsIn` val
               then Just (val `ffi_keyGet` jsKey)

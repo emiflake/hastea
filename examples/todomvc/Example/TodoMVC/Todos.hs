@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module Example.TodoMVC.Todos
   ( add
   , viewTodo
@@ -28,14 +26,14 @@ import Prelude hiding (div, span)
 -- MODEL
 
 newtype TodoId
-  = TodoId {unTodoId :: Int}
+  = TodoId Int
   deriving (Show, Eq, Ord)
 
 
 data Todo
   = Todo
-  { todoLabel :: String
-  , todoCompleted :: Bool
+  { label :: String
+  , completed :: Bool
   }
   deriving (Show)
 
@@ -48,92 +46,92 @@ data Filter
 
 
 todoToggle :: Todo -> Todo
-todoToggle todo@Todo{todoCompleted} =
-  todo{todoCompleted = not todoCompleted}
+todoToggle todo =
+  todo{completed = not todo.completed}
 
 
 data Todos
   = Todos
-  { todosMap :: Map TodoId Todo
-  , todosCounter :: Int
+  { items :: Map TodoId Todo
+  , counter :: Int
   }
   deriving (Show)
 
 
 add :: String -> Todos -> Todos
-add todoLabel todos =
+add newLabel todos =
   let
     newTodo =
-      Todo{todoLabel, todoCompleted = False}
+      Todo{label = newLabel, completed = False}
     freshId =
-      TodoId (todosCounter todos)
+      TodoId todos.counter
    in
     todos
-      { todosMap = Map.insert freshId newTodo (todosMap todos)
-      , todosCounter = succ $ todosCounter todos
+      { items = Map.insert freshId newTodo todos.items
+      , counter = succ todos.counter
       }
 
 
 toggleTodo :: TodoId -> Todos -> Todos
 toggleTodo todoId todos =
   todos
-    { todosMap =
+    { items =
         Map.adjust
           todoToggle
           todoId
-          (todosMap todos)
+          todos.items
     }
 
 
 empty :: Todos
 empty =
   Todos
-    { todosMap = Map.empty
-    , todosCounter = 0
+    { items = Map.empty
+    , counter = 0
     }
 
 
 isEmpty :: Todos -> Bool
-isEmpty =
-  Map.null . todosMap
+isEmpty todos =
+  Map.null todos.items
 
 
 count :: Todos -> Int
-count =
-  Map.size . Map.filter (not . todoCompleted) . todosMap
+count todos =
+  Map.size (Map.filter (\todo -> not todo.completed) todos.items)
 
 
 clearCompleted :: Todos -> Todos
-clearCompleted todos@Todos{todosMap} =
+clearCompleted todos =
   todos
-    { todosMap = Map.filter (not . todoCompleted) todosMap
+    { items = Map.filter (\todo -> not todo.completed) todos.items
     }
 
 
 anyCompleted :: Todos -> Bool
-anyCompleted =
-  not . Map.null . Map.filter todoCompleted . todosMap
+anyCompleted todos =
+  any (.completed) todos.items
 
 
 allCompleted :: Todos -> Bool
-allCompleted =
-  all todoCompleted . Map.elems . todosMap
+allCompleted todos =
+  all (.completed) todos.items
 
 
 toggleAll :: Todos -> Todos
 toggleAll todos =
   let
-    setAll completed items =
-      fmap (\todo -> todo{todoCompleted = completed}) items
+    setAll isCompleted =
+      fmap (\todo -> todo{completed = isCompleted})
     newTodos =
       if not $ allCompleted todos
         then
-          setAll True (todosMap todos)
+          setAll True todos.items
         else
-          setAll False (todosMap todos)
+          setAll False todos.items
    in
     todos
-      { todosMap = newTodos
+      { items = newTodos
       }
 
 
@@ -142,26 +140,26 @@ toggleAll todos =
 viewTodo :: msg -> Todo -> Html msg
 viewTodo toggle todo =
   li
-    [if todoCompleted todo then className "completed" else className ""]
+    [if todo.completed then className "completed" else className ""]
     [ div
         [className "view"]
         [ input
             [ className "toggle"
             , type_ "checkbox"
-            , checked (todoCompleted todo)
+            , checked todo.completed
             , onClick toggle
             ]
-        , label [] [text (todoLabel todo)]
+        , label [] [text todo.label]
         ]
     ]
 
 
 shouldView :: Filter -> Todo -> Bool
-shouldView currentFilter Todo{todoCompleted} =
+shouldView currentFilter todo =
   case currentFilter of
-    Completed -> todoCompleted
+    Completed -> todo.completed
     All -> True
-    Active -> not todoCompleted
+    Active -> not todo.completed
 
 
 viewTodos :: Filter -> ((Todos -> Todos) -> msg) -> Todos -> Html msg
@@ -169,8 +167,8 @@ viewTodos currentFilter updateTodos todos =
   ul
     [className "todo-list"]
     [ -- The key ties each item to its DOM node, whatever the filter shows.
-      keyed (show (unTodoId todoId)) $
+      keyed (show number) $
         viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todo
-    | (todoId, todo) <- Map.assocs (todosMap todos)
+    | (todoId@(TodoId number), todo) <- Map.assocs todos.items
     , shouldView currentFilter todo
     ]

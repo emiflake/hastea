@@ -237,7 +237,7 @@ data Msg
 
 eventTests :: Suite -> IO ()
 eventTests suite = do
-  let names el = [(e, I.preventDefault o, I.stopPropagation o) | (e, o, _) <- listeners el]
+  let names el = [(e, o.preventDefault, o.stopPropagation) | (e, o, _) <- listeners el]
       plain event = [(event, False, False)]
       preventing event = [(event, True, False)]
 

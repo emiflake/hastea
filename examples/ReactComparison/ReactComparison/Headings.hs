@@ -38,7 +38,7 @@ section level children =
 
 
 heading :: Int -> String -> Html msg
-heading level title = tag [] [text title]
+heading level content = tag [] [text content]
  where
   tag = case level of
     1 -> h1

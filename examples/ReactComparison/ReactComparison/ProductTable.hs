@@ -75,13 +75,13 @@ searchBar model =
     []
     [ input
         [ type_ "text"
-        , value (filterText model)
+        , value model.filterText
         , placeholder "Search..."
         , onInput FilterTextChanged
         ]
     , label
         []
-        [ input [type_ "checkbox", checked (inStockOnly model), onCheck InStockOnlyChanged]
+        [ input [type_ "checkbox", checked model.inStockOnly, onCheck InStockOnlyChanged]
         , text " Only show products in stock"
         ]
     ]
@@ -98,20 +98,20 @@ productTable allProducts model =
   visible =
     [ item
     | item <- allProducts
-    , map toLower (filterText model) `isInfixOf` map toLower (name item)
-    , stocked item || not (inStockOnly model)
+    , map toLower model.filterText `isInfixOf` map toLower item.name
+    , item.stocked || not model.inStockOnly
     ]
 
   -- A category row goes before the first item of each category.
   rows _ [] = []
   rows lastCategory (item : rest)
-    | Just (category item) /= lastCategory =
-        keyed (category item) (productCategoryRow (category item))
+    | Just item.category /= lastCategory =
+        keyed item.category (productCategoryRow item.category)
           : productRows item rest
     | otherwise = productRows item rest
 
   productRows item rest =
-    keyed (name item) (productRow item) : rows (Just (category item)) rest
+    keyed item.name (productRow item) : rows (Just item.category) rest
 
 
 productCategoryRow :: String -> Html msg
@@ -125,9 +125,9 @@ productRow item =
     []
     [ td
         []
-        [ if stocked item
-            then text (name item)
-            else span [styles [("color", "red")]] [text (name item)]
+        [ if item.stocked
+            then text item.name
+            else span [styles [("color", "red")]] [text item.name]
         ]
-    , td [] [text (price item)]
+    , td [] [text item.price]
     ]

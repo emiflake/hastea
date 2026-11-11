@@ -75,5 +75,6 @@ run = do
 
 
 secondsPassed :: State -> Double
-secondsPassed State{startTime = Just start, now = Just current} = (current - start) / 1000
-secondsPassed _ = 0
+secondsPassed state = case (state.startTime, state.now) of
+  (Just start, Just current) -> (current - start) / 1000
+  _ -> 0

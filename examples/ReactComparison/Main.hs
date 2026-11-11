@@ -65,27 +65,27 @@ initial =
 
 update :: Msg -> Model -> (Model, Cmd Msg)
 update msg model = case msg of
-  FirstCounterMsg m -> noCmd model{firstCounter = Counter.update m (firstCounter model)}
-  SecondCounterMsg m -> noCmd model{secondCounter = Counter.update m (secondCounter model)}
-  AccordionMsg m -> noCmd model{accordion = Accordion.update m (accordion model)}
-  ProductTableMsg m -> noCmd model{productTable = ProductTable.update m (productTable model)}
-  TasksMsg m -> noCmd model{tasks = Tasks.update m (tasks model)}
-  GreetingMsg m -> noCmd model{greeting = Greeting.update m (greeting model)}
+  FirstCounterMsg m -> noCmd model{firstCounter = Counter.update m model.firstCounter}
+  SecondCounterMsg m -> noCmd model{secondCounter = Counter.update m model.secondCounter}
+  AccordionMsg m -> noCmd model{accordion = Accordion.update m model.accordion}
+  ProductTableMsg m -> noCmd model{productTable = ProductTable.update m model.productTable}
+  TasksMsg m -> noCmd model{tasks = Tasks.update m model.tasks}
+  GreetingMsg m -> noCmd model{greeting = Greeting.update m model.greeting}
   -- Parts with effects also return a command, whose messages are wrapped
   -- like those of their view.
   StopwatchMsg m ->
-    let (new, cmd) = Stopwatch.update m (stopwatch model)
+    let (new, cmd) = Stopwatch.update m model.stopwatch
      in (model{stopwatch = new}, StopwatchMsg <$> cmd)
   FocusMsg m -> (model, FocusMsg <$> Focus.update m)
   QuizMsg m ->
-    let (new, cmd) = Quiz.update m (quiz model)
+    let (new, cmd) = Quiz.update m model.quiz
      in (model{quiz = new}, QuizMsg <$> cmd)
  where
   noCmd new = (new, Cmd.none)
 
 
 subscriptions :: Model -> Sub Msg
-subscriptions model = StopwatchMsg <$> Stopwatch.subscriptions (stopwatch model)
+subscriptions model = StopwatchMsg <$> Stopwatch.subscriptions model.stopwatch
 
 
 view :: Model -> Html Msg
@@ -95,17 +95,17 @@ view model =
     [ example
         "useState"
         [ -- The same component twice, each with its own state.
-          FirstCounterMsg <$> Counter.view (firstCounter model)
-        , SecondCounterMsg <$> Counter.view (secondCounter model)
+          FirstCounterMsg <$> Counter.view model.firstCounter
+        , SecondCounterMsg <$> Counter.view model.secondCounter
         ]
-    , example "Lifting state up" [AccordionMsg <$> lazy Accordion.view (accordion model)]
-    , example "Thinking in React" [ProductTableMsg <$> lazy ProductTable.view (productTable model)]
-    , example "useReducer" [TasksMsg <$> lazy Tasks.view (tasks model)]
-    , example "memo" [GreetingMsg <$> Greeting.view (greeting model)]
+    , example "Lifting state up" [AccordionMsg <$> lazy Accordion.view model.accordion]
+    , example "Thinking in React" [ProductTableMsg <$> lazy ProductTable.view model.productTable]
+    , example "useReducer" [TasksMsg <$> lazy Tasks.view model.tasks]
+    , example "memo" [GreetingMsg <$> Greeting.view model.greeting]
     , example "Context" [Headings.view]
-    , example "Effects and refs" [StopwatchMsg <$> Stopwatch.view (stopwatch model)]
+    , example "Effects and refs" [StopwatchMsg <$> Stopwatch.view model.stopwatch]
     , example "Refs to DOM nodes" [FocusMsg <$> Focus.view]
-    , example "Asynchronous work" [QuizMsg <$> lazy Quiz.view (quiz model)]
+    , example "Asynchronous work" [QuizMsg <$> lazy Quiz.view model.quiz]
     ]
 
 
@@ -116,7 +116,7 @@ example name content =
 
 main :: IO ()
 main = do
-  run (app update initial view){appSubscriptions = subscriptions}
+  run (app update initial view){subscriptions = subscriptions}
   StopwatchRoot.run
 
 

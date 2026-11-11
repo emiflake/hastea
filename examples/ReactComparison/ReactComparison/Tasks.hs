@@ -26,8 +26,8 @@ import Hastea.Html.Events (onCheck, onClick, onInput)
 
 
 data Task = Task
-  { taskId :: Int
-  , taskText :: String
+  { id :: Int
+  , text :: String
   , done :: Bool
   }
 
@@ -69,14 +69,14 @@ update :: Msg -> Model -> Model
 update msg model = case msg of
   Added ->
     model
-      { tasks = tasks model <> [Task (nextId model) (draft model) False]
-      , nextId = nextId model + 1
+      { tasks = model.tasks <> [Task model.nextId model.draft False]
+      , nextId = model.nextId + 1
       , draft = ""
       }
   Changed task ->
-    model{tasks = [if taskId t == taskId task then task else t | t <- tasks model]}
+    model{tasks = [if t.id == task.id then task else t | t <- model.tasks]}
   Deleted deletedId ->
-    model{tasks = filter ((/= deletedId) . taskId) (tasks model)}
+    model{tasks = filter (\task -> task.id /= deletedId) model.tasks}
   DraftChanged newDraft -> model{draft = newDraft}
   EditStarted editedId -> model{editing = Just editedId}
   EditFinished -> model{editing = Nothing}
@@ -87,11 +87,11 @@ view model =
   div
     []
     [ h1 [] [text "Prague itinerary"]
-    , addTask (draft model)
+    , addTask model.draft
     , ul
         []
-        [ keyed (show (taskId task)) (li [] [viewTask (editing model == Just (taskId task)) task])
-        | task <- tasks model
+        [ keyed (show task.id) (li [] [viewTask (model.editing == Just task.id) task])
+        | task <- model.tasks
         ]
     ]
 
@@ -109,17 +109,17 @@ viewTask :: Bool -> Task -> Html Msg
 viewTask isEditing task =
   label
     []
-    ( [input [type_ "checkbox", checked (done task), onCheck (\isDone -> Changed task{done = isDone})]]
+    ( [input [type_ "checkbox", checked task.done, onCheck (\isDone -> Changed task{done = isDone})]]
         <> content
-        <> [button [onClick (Deleted (taskId task))] [text "Delete"]]
+        <> [button [onClick (Deleted task.id)] [text "Delete"]]
     )
  where
   content
     | isEditing =
-        [ input [value (taskText task), onInput (\newText -> Changed task{taskText = newText})]
+        [ input [value task.text, onInput (\newText -> Changed task{text = newText})]
         , button [onClick EditFinished] [text "Save"]
         ]
     | otherwise =
-        [ text (taskText task)
-        , button [onClick (EditStarted (taskId task))] [text "Edit"]
+        [ text task.text
+        , button [onClick (EditStarted task.id)] [text "Edit"]
         ]

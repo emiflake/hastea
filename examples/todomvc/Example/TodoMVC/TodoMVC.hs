@@ -1,5 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
-
 module Example.TodoMVC.TodoMVC
   ( runTodoMVC
   )
@@ -30,27 +28,27 @@ import Example.TodoMVC.Todos qualified as Todos
 
 data Model
   = Model
-  { mTodos :: Todos
-  , mTodoEntry :: String
-  , mFilter :: Todos.Filter
+  { todos :: Todos
+  , entry :: String
+  , filter :: Todos.Filter
   }
   deriving (Show)
 
 
 addTodo :: Model -> Model
-addTodo model@Model{mTodos, mTodoEntry} =
+addTodo model =
   model
-    { mTodos = Todos.add mTodoEntry mTodos
-    , mTodoEntry = ""
+    { todos = Todos.add model.entry model.todos
+    , entry = ""
     }
 
 
 init :: Model
 init =
   Model
-    { mTodos = Todos.empty
-    , mTodoEntry = ""
-    , mFilter = Todos.All
+    { todos = Todos.empty
+    , entry = ""
+    , filter = Todos.All
     }
 
 
@@ -81,18 +79,18 @@ update :: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     TodosUpdate updateTodos ->
-      (model{mTodos = updateTodos (mTodos model)}, Cmd.none)
-    TodoEntryChange entry ->
-      (model{mTodoEntry = entry}, Cmd.none)
+      (model{todos = updateTodos model.todos}, Cmd.none)
+    TodoEntryChange newEntry ->
+      (model{entry = newEntry}, Cmd.none)
     TodoEntryKeypress "Enter"
-      | not . null . mTodoEntry $ model ->
+      | not (null model.entry) ->
           (addTodo model, Cmd.none)
     SetFilter newFilter ->
-      (model{mFilter = newFilter}, Cmd.none)
+      (model{filter = newFilter}, Cmd.none)
     ClearCompleted ->
-      (model{mTodos = Todos.clearCompleted (mTodos model)}, Cmd.none)
+      (model{todos = Todos.clearCompleted model.todos}, Cmd.none)
     ToggleAll ->
-      (model{mTodos = Todos.toggleAll (mTodos model)}, Cmd.none)
+      (model{todos = Todos.toggleAll model.todos}, Cmd.none)
     _ ->
       (model, Cmd.none)
 
@@ -116,15 +114,15 @@ viewFilters :: Model -> Html Msg
 viewFilters model =
   ul
     [className "filters"]
-    [ viewFilter Todos.All (mFilter model)
-    , viewFilter Todos.Active (mFilter model)
-    , viewFilter Todos.Completed (mFilter model)
+    [ viewFilter Todos.All model.filter
+    , viewFilter Todos.Active model.filter
+    , viewFilter Todos.Completed model.filter
     ]
 
 
 viewClearCompleted :: Model -> [Html Msg]
 viewClearCompleted model =
-  if Todos.anyCompleted (mTodos model)
+  if Todos.anyCompleted model.todos
     then
       [ button
           [ className "clear-completed"
@@ -147,11 +145,11 @@ viewItemCount count =
 
 viewFooter :: Model -> [Html Msg]
 viewFooter model =
-  if not . Todos.isEmpty . mTodos $ model
+  if not (Todos.isEmpty model.todos)
     then
       [ footer
           [className "footer"]
-          ( [ viewItemCount . Todos.count . mTodos $ model
+          ( [ viewItemCount (Todos.count model.todos)
             , viewFilters model
             ]
               <> viewClearCompleted model
@@ -175,7 +173,7 @@ view model =
                   , placeholder "What needs to be done?"
                   , onInput TodoEntryChange
                   , onKeypress TodoEntryKeypress
-                  , value (mTodoEntry model)
+                  , value model.entry
                   ]
               ]
           , section
@@ -185,12 +183,12 @@ view model =
                   , className "toggle-all"
                   , type_ "checkbox"
                   , onClick ToggleAll
-                  , checked (Todos.allCompleted . mTodos $ model)
+                  , checked (Todos.allCompleted model.todos)
                   ]
               , label [for "toggle-all"] []
               , -- Typing in the entry field changes neither the filter nor
                 -- the todos, so the list is then skipped entirely.
-                lazy3 Todos.viewTodos (mFilter model) TodosUpdate (mTodos model)
+                lazy3 Todos.viewTodos model.filter TodosUpdate model.todos
               ]
           ]
             <> (viewFooter model)

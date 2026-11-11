@@ -30,8 +30,8 @@
   view model =
     div
       [className "signup"]
-      [ input [placeholder "Your name", value (name model), onInput NameChanged]
-      , button [onClick Submit, disabled (null (name model))] [text "Sign up"]
+      [ input [placeholder "Your name", value model.name, onInput NameChanged]
+      , button [onClick Submit, disabled (null model.name)] [text "Sign up"]
       ]
   #+END_SRC
 
@@ -66,11 +66,11 @@
 
   subscriptions :: Model -> Sub Msg
   subscriptions model
-    | clockVisible model = Time.every 1000 Ticked
+    | model.clockVisible = Time.every 1000 Ticked
     | otherwise = Sub.none
 
   main :: IO ()
-  main = run (app update initial view){appSubscriptions = subscriptions}
+  main = run (app update initial view){subscriptions = subscriptions}
   #+END_SRC
 
   | ~Hastea.Cmd~  | ~none~, ~batch~, ~perform~ (run ~IO~ and send the result), ~effect~, ~custom~ |
@@ -124,6 +124,7 @@
     #+END_SRC
   - Editor support: ~hie.yaml~ points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work.
   - The code builds warning-free under ~-Wall -Wcompat~.
+  - Records use ~OverloadedRecordDot~ (~model.name~), with ~NoFieldSelectors~ and ~DuplicateRecordFields~, all enabled in ~hastea.cabal~. Fields are therefore not functions, and can share names with each other and with HTML elements.
 
 * TODOs
   - Benchmark

@@ -29,15 +29,15 @@ import Hastea.Sub qualified as Sub
 
 -- | Everything that makes up an application.
 data App model msg = App
-  { appInitial :: (model, Cmd msg)
+  { initial :: (model, Cmd msg)
   -- ^ The model to start with, and a command to run at the start.
-  , appUpdate :: msg -> model -> (model, Cmd msg)
+  , update :: msg -> model -> (model, Cmd msg)
   -- ^ The next model when a message arrives, and a command to run.
-  , appView :: model -> Html msg
+  , view :: model -> Html msg
   -- ^ What to show for a model.
-  , appSubscriptions :: model -> Sub msg
+  , subscriptions :: model -> Sub msg
   -- ^ What to listen to, besides the view, while the model is like this.
-  , appContainer :: String
+  , container :: String
   -- ^ The id of the element to show the view in.
   }
 
@@ -47,17 +47,17 @@ to do at the start, shown in the element with id @main-node@. Use record
 syntax to add the rest:
 
 @
-run (app update initial view){appSubscriptions = subscriptions}
+run (app update initial view){subscriptions = subscriptions}
 @
 -}
 app :: (msg -> model -> (model, Cmd msg)) -> model -> (model -> Html msg) -> App model msg
 app update initial view =
   App
-    { appInitial = (initial, none)
-    , appUpdate = update
-    , appView = view
-    , appSubscriptions = const Sub.none
-    , appContainer = "main-node"
+    { initial = (initial, none)
+    , update = update
+    , view = view
+    , subscriptions = const Sub.none
+    , container = "main-node"
     }
 
 
@@ -75,30 +75,30 @@ runApp update initial view = run (app update initial view)
 -- | Run an application.
 run :: App model msg -> IO ()
 run application = do
-  let (initial, initialCmd) = appInitial application
+  let (initial, initialCmd) = application.initial
   model <- newIORef initial
-  subscriptions <- newManager
+  running <- newManager
   renderScheduled <- newIORef False
   -- Filled in once the root exists; the root in turn needs 'dispatch'.
   scheduleRender <- newIORef (pure ())
 
   let dispatch msg = do
-        (new, cmd) <- appUpdate application msg <$> readIORef model
+        (new, cmd) <- application.update msg <$> readIORef model
         new `seq` writeIORef model new
         scheduled <- readIORef renderScheduled
         unless scheduled $ do
           writeIORef renderScheduled True
           join (readIORef scheduleRender)
-        sync dispatch subscriptions (appSubscriptions application new)
+        sync dispatch running (application.subscriptions new)
         runCmd dispatch cmd
 
-  root <- mount (appContainer application) dispatch
+  root <- mount application.container dispatch
   let renderNow = do
         writeIORef renderScheduled False
-        readIORef model >>= render root . appView application
+        readIORef model >>= render root . application.view
 
   onFrame <- DOM.newCallback renderNow
   writeIORef scheduleRender (DOM.requestAnimationFrame onFrame)
   renderNow
-  sync dispatch subscriptions (appSubscriptions application initial)
+  sync dispatch running (application.subscriptions initial)
   runCmd dispatch initialCmd

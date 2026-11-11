@@ -21,7 +21,16 @@ source-repository head
   location: https://github.com/emiflake/hastea.git
 
 common shared
-  default-language: GHC2021
+  default-language:   GHC2021
+
+  -- Records are accessed as `record.field`. Fields do not also become
+  -- functions, so they can share a name with other things: a model can have
+  -- a field called `title` next to the `title` element.
+  default-extensions:
+    DuplicateRecordFields
+    NoFieldSelectors
+    OverloadedRecordDot
+
   ghc-options:      -Wall -Wcompat
 
 -- Components that use the JavaScript FFI of the wasm backend.

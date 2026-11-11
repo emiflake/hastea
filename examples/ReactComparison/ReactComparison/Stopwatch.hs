@@ -59,7 +59,7 @@ update msg model = case msg of
 
 subscriptions :: Model -> Sub Msg
 subscriptions model
-  | running model = Time.every 10 Ticked
+  | model.running = Time.every 10 Ticked
   | otherwise = Sub.none
 
 
@@ -74,5 +74,6 @@ view model =
 
 
 secondsPassed :: Model -> Double
-secondsPassed Model{startTime = Just start, now = Just current} = (current - start) / 1000
-secondsPassed _ = 0
+secondsPassed model = case (model.startTime, model.now) of
+  (Just start, Just current) -> (current - start) / 1000
+  _ -> 0

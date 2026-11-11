@@ -139,13 +139,13 @@ failWith = Fail
 against both real JavaScript values and the pure 'Value' type.
 -}
 data Source v = Source
-  { sourceString :: v -> Maybe String
-  , sourceNumber :: v -> Maybe Double
-  , sourceBool :: v -> Maybe Bool
-  , sourceIsNull :: v -> Bool
+  { string :: v -> Maybe String
+  , number :: v -> Maybe Double
+  , bool :: v -> Maybe Bool
+  , isNull :: v -> Bool
   -- ^ Whether the value is @null@ or @undefined@.
-  , sourceList :: v -> Maybe [v]
-  , sourceField :: String -> v -> Maybe v
+  , list :: v -> Maybe [v]
+  , field :: String -> v -> Maybe v
   -- ^ Look up a property; 'Nothing' if the value has no such property.
   }
 
@@ -161,18 +161,18 @@ decodeWith source = go
     Ap df da -> go df v <*> go da v
     Alt a b -> either (const (go b v)) Right (go a v)
     AndThen a f -> go a v >>= \x -> go (f x) v
-    String -> expect "a string" (sourceString source v)
-    Number -> expect "a number" (sourceNumber source v)
-    Bool -> expect "a boolean" (sourceBool source v)
+    String -> expect "a string" (source.string v)
+    Number -> expect "a number" (source.number v)
+    Bool -> expect "a boolean" (source.bool v)
     Nullable inner
-      | sourceIsNull source v -> Right Nothing
+      | source.isNull v -> Right Nothing
       | otherwise -> Just <$> go inner v
     List inner -> do
-      items <- expect "an array" (sourceList source v)
+      items <- expect "an array" (source.list v)
       sequence
         [first (within ("[" <> show i <> "]")) (go inner item) | (i, item) <- zip [0 :: Int ..] items]
     Field key inner -> do
-      child <- expect ("an object with a field named " <> show key) (sourceField source key v)
+      child <- expect ("an object with a field named " <> show key) (source.field key v)
       first (within ("." <> key)) (go inner child)
 
   expect what = maybe (Left ("expected " <> what)) Right
@@ -204,10 +204,10 @@ decodeValue = decodeWith valueSource
 valueSource :: Source Value
 valueSource =
   Source
-    { sourceString = \case StringValue s -> Just s; _ -> Nothing
-    , sourceNumber = \case NumberValue n -> Just n; _ -> Nothing
-    , sourceBool = \case BoolValue b -> Just b; _ -> Nothing
-    , sourceIsNull = (== Null)
-    , sourceList = \case ArrayValue vs -> Just vs; _ -> Nothing
-    , sourceField = \key -> \case ObjectValue fields -> lookup key fields; _ -> Nothing
+    { string = \case StringValue s -> Just s; _ -> Nothing
+    , number = \case NumberValue n -> Just n; _ -> Nothing
+    , bool = \case BoolValue b -> Just b; _ -> Nothing
+    , isNull = (== Null)
+    , list = \case ArrayValue vs -> Just vs; _ -> Nothing
+    , field = \key -> \case ObjectValue fields -> lookup key fields; _ -> Nothing
     }
