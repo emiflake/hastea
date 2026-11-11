@@ -149,6 +149,8 @@ You need the `wasm32-wasi-ghc` cross-compiler and `cabal` from [ghc-wasm-meta](h
 
   It installs into `~/.ghc-wasm`. Run `source ~/.ghc-wasm/env` in every new shell to put the tools on your `PATH`.
 
+- On Windows: ghc-wasm-meta has no Windows build, so use [WSL2](https://learn.microsoft.com/windows/wsl/install) with Ubuntu and follow the Linux steps above inside it. Clone the repository inside WSL (e.g. `~/hastea`) rather than building a checkout under `/mnt/c`: that is much slower, and a checkout made by Git for Windows may still have CRLF endings from before `.gitattributes` existed, which breaks `build.sh`. The server in the next section is reachable from your Windows browser at `http://localhost:8080`.
+
 Both routes download prebuilt binaries from GitHub releases, so they need access to `github.com` as well as `gitlab.haskell.org`.
 
 Hastea is tested with the GHC 9.14 flavour.
