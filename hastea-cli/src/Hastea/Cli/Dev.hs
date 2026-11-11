@@ -15,6 +15,11 @@ expression (@main@ unless hastea.yaml says otherwise). From then on:
 
 Compilation errors are shown on the terminal and over the page, until the
 next reload that works.
+
+When it runs in a terminal, @hastea dev@ also gives a GHCi prompt, for the
+session of the page: expressions are evaluated in the page, and what they
+print comes back to the terminal. @:reload@ (or @:r@) reloads and runs the
+application, like a change to a file; @:quit@ (or Ctrl-D) stops.
 -}
 module Hastea.Cli.Dev
   ( DevOptions (..)
@@ -22,16 +27,18 @@ module Hastea.Cli.Dev
   )
 where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, myThreadId, threadDelay, throwTo)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
-import Control.Exception (catch, finally, throwIO)
+import Control.Exception (AsyncException (UserInterrupt), catch, finally, throwIO)
 import Control.Monad (forM_, forever, unless, void, when)
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.ByteString.Builder qualified as Builder
 import Data.ByteString.Lazy qualified as LBS
+import Data.Char (isSpace)
 import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -42,10 +49,13 @@ import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp qualified as Warp
 import Numeric (showFFloat)
-import System.Directory (doesDirectoryExist, doesFileExist)
+import System.Console.Haskeline qualified as Haskeline
+import System.Directory (XdgDirectory (..), createDirectoryIfMissing, doesDirectoryExist, doesFileExist, getXdgDirectory)
 import System.Environment (lookupEnv)
 import System.FilePath (joinPath, splitSearchPath, takeExtension, (</>))
+import System.IO (hIsTerminalDevice, stdin, stdout)
 import System.IO.Error (isAlreadyInUseError)
+import System.Posix.Signals (Handler (Catch), installHandler, sigHUP, sigTERM)
 import System.Timeout (timeout)
 
 import Hastea.Cli.Config
@@ -67,10 +77,12 @@ newtype DevOptions = DevOptions
 data Event = Event Text Aeson.Value
 
 
--- | A GHCi session, and whether a page is using it yet.
+-- | A GHCi session, whether a page is using it yet, and whether its modules
+-- have been loaded there.
 data Current = Current
   { session :: Session
   , attached :: IORef Bool
+  , ready :: IORef Bool
   }
 
 
@@ -89,8 +101,13 @@ data Dev = Dev
 dev :: Config -> App -> DevOptions -> IO ()
 dev config app options = do
   requireTools [config.toolchain.cabal, config.toolchain.ghc, config.toolchain.node]
+  -- Being killed, or losing the terminal, stops everything as Ctrl-C does.
+  -- Otherwise GHCi, in a process group of its own, would be left running.
+  main <- myThreadId
+  forM_ [sigTERM, sigHUP] $ \signal -> installHandler signal (Catch (throwTo main UserInterrupt)) Nothing
   checkWs
   state <- Dev config app <$> newMVar Nothing <*> newBroadcastTChanIO <*> newTVarIO Nothing <*> newTVarIO False
+  serving <- newEmptyMVar
   let port = fromMaybe config.dev.port options.port
       -- Once the port is ours: start a session before any page asks, so
       -- that the first load is quick, and watch for changes.
@@ -98,13 +115,24 @@ dev config app options = do
         Log.success ("hastea dev: " <> app.name <> " on http://localhost:" <> T.pack (show port))
         void (restart state False)
         void (forkIO (watchFiles config app (changed state)))
+        putMVar serving Nothing
       settings = Warp.setPort port (Warp.setHost "127.0.0.1" (Warp.setBeforeMainLoop ready Warp.defaultSettings))
-      portTaken failure
-        | isAlreadyInUseError failure =
+  -- The server runs alongside; this thread keeps the terminal.
+  void . forkIO $
+    Warp.runSettings settings (application state) `catch` \failure ->
+      tryPutMVar serving (Just failure) >>= \first -> unless first (Log.problem ("The web server stopped: " <> T.pack (show failure)))
+  ( takeMVar serving >>= \case
+      Just failure
+        | isAlreadyInUseError failure ->
             Log.dieWith ("Port " <> T.pack (show port) <> " is already in use. Choose another with --port, or with dev.port in hastea.yaml.")
-        | otherwise = throwIO failure
-  (Warp.runSettings settings (application state) `catch` portTaken)
-    `finally` (readMVar state.current >>= mapM_ (Ghci.stop . (.session)))
+        | otherwise -> throwIO failure
+      Nothing -> do
+        interactive <- (&&) <$> hIsTerminalDevice stdin <*> hIsTerminalDevice stdout
+        if interactive then prompt state else forever (threadDelay maxBound)
+    )
+    `finally` do
+      Log.setPrinter Nothing
+      readMVar state.current >>= mapM_ (Ghci.stop . (.session))
 
 
 -- GHCi's browser mode needs the ws package from node.
@@ -126,7 +154,7 @@ broadcast state event@(Event name _) = atomically $ do
 restart :: Dev -> Bool -> IO Current
 restart state attach = modifyMVar state.current $ \existing -> do
   mapM_ (Ghci.stop . (.session)) existing
-  fresh <- Current <$> Ghci.start state.config state.app <*> newIORef attach
+  fresh <- Current <$> Ghci.start state.config state.app <*> newIORef attach <*> newIORef False
   pure (Just fresh, fresh)
 
 
@@ -144,18 +172,20 @@ acquire state = do
   address <- Ghci.origin chosen.session
   forM_ address $ \_ -> do
     Log.info "A page connected; loading the modules in it"
-    void (forkIO (follow state chosen.session))
+    void (forkIO (follow state chosen))
   pure address
 
 
 -- Load the application in a session, and reload it whenever source changes.
-follow :: Dev -> Session -> IO ()
-follow state session = do
+follow :: Dev -> Current -> IO ()
+follow state chosen = do
   began <- getCurrentTime
   Ghci.awaitPrompt session >>= mapM_ \output -> do
+    writeIORef chosen.ready True
     loaded state session began output
     loop
  where
+  session = chosen.session
   -- Wait for a change, unless the session stops first: then the change is
   -- left for the session that replaced it.
   loop = do
@@ -204,6 +234,61 @@ changed state changes = do
       if PageChanged `elem` kinds
         then broadcast state (Event "reload" Aeson.Null)
         else when (StyleChanged `elem` kinds) (broadcast state (Event "css" Aeson.Null))
+
+
+-- THE PROMPT
+
+-- Read GHCi commands from the terminal until told to stop.
+prompt :: Dev -> IO ()
+prompt state = do
+  history <- getXdgDirectory XdgCache "hastea"
+  createDirectoryIfMissing True history
+  let settings =
+        Haskeline.setComplete (completion state) $
+          Haskeline.defaultSettings{Haskeline.historyFile = Just (history </> "ghci_history")}
+  Haskeline.runInputT settings $ do
+    external <- Haskeline.getExternalPrint
+    liftIO (Log.info "GHCi runs in the page once it is open. Type commands here; :r reloads, :q quits.")
+    let loop = do
+          -- Lines printed meanwhile go above the prompt.
+          liftIO (Log.setPrinter (Just external))
+          line <- Haskeline.getInputLine "ghci> "
+          liftIO (Log.setPrinter Nothing)
+          case trim <$> line of
+            Nothing -> pure ()
+            Just command
+              | command `elem` [":q", ":quit"] -> pure ()
+              | null command -> loop
+              | command `elem` [":r", ":reload"] -> liftIO (atomically (writeTVar state.dirty True)) >> loop
+              | otherwise -> liftIO (send (T.pack command)) >> loop
+    loop
+ where
+  trim = dropWhile isSpace . reverse . dropWhile isSpace . reverse
+  send command =
+    readySession state >>= \case
+      Just session -> void (Ghci.command session command)
+      Nothing -> Log.warn "GHCi is not ready: open the page, and wait for it to load."
+
+
+-- Complete what is typed, as GHCi would.
+completion :: Dev -> Haskeline.CompletionFunc IO
+completion state (before, _) =
+  readySession state >>= \case
+    Nothing -> pure (before, [])
+    Just session ->
+      Ghci.complete session (reverse before) >>= \case
+        Nothing -> pure (before, [])
+        Just (kept, candidates) -> pure (reverse kept, map Haskeline.simpleCompletion candidates)
+
+
+-- The session of the page, once its modules are loaded there.
+readySession :: Dev -> IO (Maybe Session)
+readySession state =
+  withMVar state.current $ \case
+    Just chosen -> do
+      usable <- (&&) <$> readIORef chosen.attached <*> readIORef chosen.ready
+      pure (if usable then Just chosen.session else Nothing)
+    Nothing -> pure Nothing
 
 
 -- THE WEB SERVER

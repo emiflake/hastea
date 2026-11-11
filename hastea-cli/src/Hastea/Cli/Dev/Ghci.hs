@@ -18,6 +18,7 @@ module Hastea.Cli.Dev.Ghci
   , exitedSTM
   , awaitPrompt
   , command
+  , complete
 
     -- * Reading GHCi's output
   , promptMarker
@@ -26,6 +27,7 @@ module Hastea.Cli.Dev.Ghci
   , loadResult
   , threwException
   , isQuiet
+  , parseCompletions
   )
 where
 
@@ -33,7 +35,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
 import Control.Exception (IOException, try)
-import Control.Monad (unless, void, when)
+import Control.Monad (unless, void)
 import Data.IORef
 import Data.Maybe (isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Text (Text)
@@ -58,6 +60,8 @@ data Session = Session
   , exited :: TMVar ()
   , lock :: MVar ()
   -- ^ Held while a command runs.
+  , silent :: IORef Bool
+  -- ^ Set while a command runs whose output is for the hastea command only.
   , stopping :: IORef Bool
   -- ^ Set by 'stop', after which nothing more is shown: GHCi and cabal
   -- saying goodbye at once only garble the terminal.
@@ -70,7 +74,16 @@ start config app = do
   (readEnd, writeEnd) <- createPipe
   (Just input, _, _, process) <-
     createProcess
-      (proc config.toolchain.cabal ["repl", "exe:" <> T.unpack app.executable, "--repl-options=-fghci-browser"])
+      ( proc
+          config.toolchain.cabal
+          [ "repl"
+          , "exe:" <> T.unpack app.executable
+          , "--repl-options=-fghci-browser"
+          , -- What the program in the page writes (results included) comes
+            -- here, rather than to the console of the page.
+            "--repl-options=-fghci-browser-redirect-wasi-console"
+          ]
+      )
         { cwd = Just config.root
         , std_in = CreatePipe
         , std_out = UseHandle writeEnd
@@ -81,9 +94,15 @@ start config app = do
         }
   mapM_ (`hSetEncoding` utf8) [readEnd, input]
   hSetBuffering input LineBuffering
-  -- Read once the modules are loaded, before anything else is sent.
+  -- Read once the modules are loaded, before anything else is sent. Our
+  -- prompt goes last, so that the first one GHCi shows marks the end of
+  -- loading; the prompts before it are the plain "ghci> ".
+  --
+  -- For what is typed at the prompt only: `1 + 1` need not warn that it
+  -- defaults to Integer, whatever warnings the package asks for.
+  T.hPutStrLn input ":seti -Wno-type-defaults"
   T.hPutStrLn input (":set prompt " <> T.pack (show (T.unpack promptMarker <> "\n")))
-  session <- Session input process <$> newEmptyTMVarIO <*> newTQueueIO <*> newEmptyTMVarIO <*> newMVar () <*> newIORef False
+  session <- Session input process <$> newEmptyTMVarIO <*> newTQueueIO <*> newEmptyTMVarIO <*> newMVar () <*> newIORef False <*> newIORef False
   void (forkIO (readOutput session readEnd))
   pure session
 
@@ -98,21 +117,25 @@ readOutput session handle = loop []
         void (tryPutTMVar session.exited ())
       Right line
         -- The prompt comes right after the last output, which may not end in
-        -- a new line (the first prompt, "ghci> ", before ours took its place).
+        -- a new line (the plain prompts, before ours took their place).
         | (before, marker) <- T.breakOn promptMarker line
         , not (T.null marker) -> do
-            let lines'' = if T.null before || T.strip before == "ghci>" then lines' else before : lines'
+            let lines'' = if plainPrompts before then lines' else before : lines'
             atomically (writeTQueue session.prompts (T.unlines (reverse lines'')))
             loop []
         | Just address <- parseOrigin line -> do
             atomically (void (tryPutTMVar session.originVar (Just address)))
             loop lines'
-        -- The first prompt, before ours took its place.
-        | T.strip line == "ghci>" -> loop lines'
+        | plainPrompts line -> loop lines'
         | otherwise -> do
-            quiet <- readIORef session.stopping
+            quiet <- (||) <$> readIORef session.stopping <*> readIORef session.silent
             unless (quiet || isQuiet line) (Log.passThrough line)
             loop (line : lines')
+
+
+-- Nothing but GHCi's plain prompts, "ghci> ", before ours took their place.
+plainPrompts :: Text -> Bool
+plainPrompts = all (== "ghci>") . T.words
 
 
 -- | Stop the session: cabal, GHC and the node process that talks to the page.
@@ -122,10 +145,11 @@ stop session = do
   void (try @IOException (hClose session.input))
   getPid session.process >>= mapM_ \group -> do
     void (try @IOException (signalProcessGroup sigTERM group))
-    finished <- timeout 3000000 (waitForProcess session.process)
-    when (isNothing finished) $ do
-      void (try @IOException (signalProcessGroup sigKILL group))
-      void (waitForProcess session.process)
+    void (timeout 3000000 (waitForProcess session.process))
+    -- GHC catches SIGTERM, and may go on waiting for the page after cabal
+    -- has gone: whatever is left of the group goes too.
+    void (try @IOException (signalProcessGroup sigKILL group))
+    void (waitForProcess session.process)
 
 
 alive :: Session -> IO Bool
@@ -161,6 +185,21 @@ command session line = withMVar session.lock $ \() -> do
     Right () -> awaitPrompt session
 
 
+{- | What GHCi would complete the end of a line with: the part of the line
+that stays, and the ways to finish it. Nothing if GHCi stopped or could not
+say.
+-}
+complete :: Session -> String -> IO (Maybe (String, [String]))
+complete session line = withMVar session.lock $ \() -> do
+  writeIORef session.silent True
+  sent <- try (T.hPutStrLn session.input (":complete repl 1-200 " <> T.pack (show line)))
+  answer <- case sent of
+    Left (_ :: IOException) -> pure Nothing
+    Right () -> awaitPrompt session
+  writeIORef session.silent False
+  pure (answer >>= parseCompletions)
+
+
 -- READING GHCI'S OUTPUT
 
 promptMarker :: Text
@@ -190,6 +229,29 @@ loadResult output = listToMaybe (mapMaybe result (reverse (T.lines output)))
     | "Failed," `T.isPrefixOf` line = Just LoadFailed
     | "Ok," `T.isPrefixOf` line = Just Loaded
     | otherwise = Nothing
+
+
+{- | The answer to @:complete repl@: a line with how many completions there
+are and the part of the line they leave alone, then one completion a line,
+each a Haskell string literal.
+
+@
+2 2 "map "
+"mapM"
+"mapM_"
+@
+-}
+parseCompletions :: Text -> Maybe (String, [String])
+parseCompletions output = case filter (not . T.null . T.strip) (T.lines output) of
+  header : rest -> do
+    (_ :: Int, afterShown) <- first (reads (T.unpack header))
+    (_ :: Int, afterTotal) <- first (reads afterShown)
+    (kept, _) <- first (reads afterTotal)
+    candidates <- traverse (fmap fst . first . reads . T.unpack) rest
+    pure (kept, candidates)
+  [] -> Nothing
+ where
+  first = listToMaybe
 
 
 -- | Whether running an expression ended in an exception.

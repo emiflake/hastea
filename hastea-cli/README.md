@@ -4,7 +4,8 @@ The `hastea` command builds Hastea applications, and runs them during developmen
 
 ```bash
 hastea build [APP...]   # compile, and put the page together in dist/APP, ready to be served
-hastea dev [APP]        # serve the page on http://localhost:8080, reloading it whenever the source changes
+hastea dev [APP]        # serve the page on http://localhost:8080, reloading it whenever the source changes,
+                        # with a GHCi prompt for the page
 ```
 
 Both read `hastea.yaml`, looked for in the current folder and the folders above it. Without `APP`, they use the default application.
@@ -73,7 +74,27 @@ Runs the application in GHCi's browser mode (`-fghci-browser`): GHCi runs in the
 3. Whenever a Haskell file changes, the command runs `:reload` and then `run` again. Mounting replaces whatever an earlier run mounted in the same place (`Hastea.Root.mount` unmounts it first), so the page shows the new code. The state of the application starts over.
 4. A changed stylesheet in `www` is replaced in the page. Any other change in `www`, to a `.cabal` file, `cabal.project` or `hastea.yaml` loads the page again with a new session.
 
-Compilation errors are shown on the terminal and over the page until a reload works. The application's own output (`putStrLn`, `Debug.Trace`) goes to the browser's console.
+Compilation errors are shown on the terminal and over the page until a reload works. What the application writes (`putStrLn`, `Debug.Trace`) comes to the terminal.
+
+### The GHCi prompt
+
+When `hastea dev` runs in a terminal, it shows a `ghci>` prompt for the session of the page. Once the page has loaded, what you type there goes to that GHCi: expressions are evaluated in the page, so they can use the DOM and the application's modules, and their results come back to the terminal.
+
+```
+ghci> :t Example.TodoMVC.TodoMVC.runTodoMVC
+Example.TodoMVC.TodoMVC.runTodoMVC :: IO ()
+ghci> putStrLn "hello from the page"
+hello from the page
+```
+
+- Tab completes names and commands, as in GHCi. History is kept in `~/.cache/hastea/ghci_history`.
+- `:r` (or `:reload`) reloads and runs the application again, like a change to a file. Other commands go to GHCi as they are.
+- `:q` (or `:quit`, or Ctrl-D) stops `hastea dev`, as Ctrl-C does. Ctrl-C does not interrupt an expression that is being evaluated: it stops everything.
+- Commands wait for a reload in progress, and a reload waits for the command in progress.
+- What you type is evaluated with `-Wno-type-defaults`, so that `1 + 1` does not warn. Modules keep the warnings the package asks for.
+- A new page load starts a new session, which forgets the bindings made at the prompt.
+
+Without a terminal (output to a file, or in CI), there is no prompt, and `hastea dev` only serves and reloads.
 
 Things to know:
 

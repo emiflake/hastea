@@ -171,12 +171,12 @@ The examples are run with the `hastea` command from [`hastea-cli/`](hastea-cli/R
 
 ```bash
 (cd hastea-cli && cabal install)     # puts hastea in ~/.local/bin
-hastea dev                           # TodoMVC on http://localhost:8080, reloaded on every change
+hastea dev                           # TodoMVC on http://localhost:8080, reloaded on every change, with a GHCi prompt
 hastea build                         # TodoMVC into dist/todomvc, ready to be served
 hastea dev react-comparison          # or another application from hastea.yaml
 ```
 
-`hastea dev` runs the application in GHCi's browser mode, where a change is reloaded in the page in well under a second. A page built by `hastea build` is self-contained: it holds everything it loads, including a bundled copy of [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim), so it works without access to any other host.
+`hastea dev` runs the application in GHCi's browser mode, where a change is reloaded in the page in well under a second, and gives a `ghci>` prompt that evaluates in the page. A page built by `hastea build` is self-contained: it holds everything it loads, including a bundled copy of [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim), so it works without access to any other host.
 
 If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-cabal`, since `cabal.project` selects the wasm compiler; set `toolchain.cabal` in `hastea.yaml` to have the `hastea` command use it too.
 

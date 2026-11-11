@@ -131,6 +131,10 @@ ghci suite = do
   equal suite "exception" True (threwException "*** Exception: Prelude.head: empty list\n")
   equal suite "no exception" False (threwException "")
   equal suite "quiet compiling" True (isQuiet "[4 of 6] Compiling Example.TodoMVC.TodoMVC ( examples/todomvc/Example/TodoMVC/TodoMVC.hs, interpreted )[hastea-0.1.0.0-inplace-hastea-todomvc]")
+  equal suite "completions" (Just ("map ", ["mapM", "mapM_"])) (parseCompletions "2 2 \"map \"\n\"mapM\"\n\"mapM_\"\n")
+  equal suite "no completions" (Just ("", [])) (parseCompletions "0 0 \"\"\n")
+  equal suite "completions with escapes" (Just (":t ", ["x\"y"])) (parseCompletions "1 1 \":t \"\n\"x\\\"y\"\n")
+  equal suite "not completions" Nothing (parseCompletions "<interactive>: oops\n")
   equal suite "errors are not quiet" False (isQuiet "examples/todomvc/Main.hs:7:8: error: [GHC-88464]")
 
 
