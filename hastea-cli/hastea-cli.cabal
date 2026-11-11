@@ -1,0 +1,90 @@
+cabal-version:      3.4
+name:               hastea-cli
+version:            0.1.0.0
+synopsis:           The hastea command: build Hastea applications, and develop them with live reload
+description:
+  @hastea build@ compiles an application to WebAssembly and puts the page
+  together in a folder ready to be served. @hastea dev@ runs it in GHCi's
+  browser mode and reloads it in the page whenever a source file changes.
+  Both read their settings from @hastea.yaml@.
+
+homepage:           https://github.com/emiflake/hastea
+bug-reports:        https://github.com/emiflake/hastea/issues
+author:             emiflake
+maintainer:         emiflake
+category:           Web
+build-type:         Simple
+tested-with:        GHC ==9.10.3
+extra-doc-files:    README.md
+extra-source-files:
+  runtime/browser_wasi_shim.js
+  runtime/dev.js
+  runtime/index.js
+
+common shared
+  default-language:   GHC2021
+  default-extensions:
+    BlockArguments
+    DuplicateRecordFields
+    LambdaCase
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+
+  ghc-options:        -Wall -Wcompat
+
+library
+  import:          shared
+  hs-source-dirs:  src
+  exposed-modules:
+    Hastea.Cli.Build
+    Hastea.Cli.Config
+    Hastea.Cli.Dev
+    Hastea.Cli.Dev.Ghci
+    Hastea.Cli.Dev.Page
+    Hastea.Cli.Dev.Watch
+    Hastea.Cli.Log
+    Hastea.Cli.Runtime
+    Hastea.Cli.Toolchain
+
+  build-depends:
+    , aeson         >=2.0  && <2.3
+    , base          >=4.18 && <5
+    , bytestring    >=0.11 && <0.13
+    , containers    >=0.6  && <0.8
+    , directory     >=1.3  && <1.4
+    , file-embed    >=0.0.15 && <0.1
+    , filepath      >=1.4  && <1.6
+    , http-types    >=0.12 && <0.13
+    , process       >=1.6.9 && <1.7
+    , stm           >=2.5  && <2.6
+    , text          >=2.0  && <2.2
+    , time          >=1.12 && <1.15
+    , unix          >=2.8  && <2.9
+    , wai           >=3.2  && <3.3
+    , warp          >=3.3  && <3.5
+    , yaml          >=0.11 && <0.12
+
+executable hastea
+  import:         shared
+  hs-source-dirs: app
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , directory
+    , hastea-cli
+    , optparse-applicative  >=0.17 && <0.20
+    , text
+
+  ghc-options:    -threaded
+
+test-suite hastea-cli-test
+  import:         shared
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Main.hs
+  build-depends:
+    , base
+    , containers
+    , hastea-cli
+    , text

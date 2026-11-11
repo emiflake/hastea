@@ -7,7 +7,7 @@ The table of rows that web frameworks are commonly measured with, written with H
 ## Running it
 
 ```bash
-./build.sh benchmark               # in the repository root
+hastea build benchmark             # into dist/benchmark; see hastea-cli/
 cd benchmark
 npm install                        # React, to compare with
 node run.cjs                       # or: node run.cjs 20, for 20 runs of each operation

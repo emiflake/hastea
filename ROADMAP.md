@@ -32,12 +32,12 @@ Items are grouped by how much they hurt a real application. The performance item
 - [ ] **An unchanged list is still walked in full.** Selecting one row of 1,000 takes 11 ms in the benchmark, against 3 ms for React, though only two rows change.
 - [ ] **Every render expands the whole tree again** before diffing, apart from `lazy` subtrees.
 - [ ] **Rendering is all-or-nothing per frame.** Long renders cannot be interrupted or given a priority.
-- [ ] **Download size.** The benchmark page is a 2.3 MB wasm module. `wasm-opt -Oz` brings it to 1.2 MB and gzip to 0.6 MB, but neither is part of the build yet. The page no longer depends on a CDN: the WASI shim is bundled and everything is fetched at once.
+- [ ] **Download size** (partly done). The benchmark page is a 2.3 MB wasm module. `hastea build --optimize` (or `optimize: true` in `hastea.yaml`) runs `wasm-opt -Oz`, which brings TodoMVC from 2.2 MB to 1.2 MB; it is not on by default yet. Gzip, which halves it again, is up to the server. The page no longer depends on a CDN: the WASI shim is bundled and everything is fetched at once.
 
 ## Developer experience
 
 - [ ] **Devtools** to inspect components, state and messages.
-- [ ] **Hot reload** (partly done). GHC's wasm GHCi can run the program in the page itself (`-fghci-browser`), where `:reload` takes well under a second. Running `main` again now replaces the application instead of stacking a second one, since mounting unmounts whatever root was there. Still missing: keeping the model across a reload, keeping `foreign export` out of the modules GHCi reloads, and a command that sets this up.
+- [ ] **Hot reload** (partly done). GHC's wasm GHCi can run the program in the page itself (`-fghci-browser`), where `:reload` takes well under a second. Running `main` again now replaces the application instead of stacking a second one, since mounting unmounts whatever root was there. `hastea dev` sets all of this up and reloads on every change. Still missing: keeping the model across a reload.
 - [ ] **Syntax friction** (partly done). Element names no longer clash with ordinary names, now that the examples import them qualified (`H.div`). Still there: `use counter ()` needs the unit, and `App` and `Component` share field names.
 - [ ] **Attaching to server-rendered markup.** `renderHtml` produces markup, but the runtime cannot take it over.
 - [ ] **A testing helper for users.** The stand-in root that drives components without a page lives only in our own test suite.

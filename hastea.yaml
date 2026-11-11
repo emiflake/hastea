@@ -1,0 +1,25 @@
+# The applications in this repository, for the hastea command (hastea-cli/).
+#
+#   hastea build [APP...]   build into dist/APP, ready to be served
+#   hastea dev [APP]        run in GHCi's browser mode, reloading on every change
+#
+# Without APP, both use the default. See hastea-cli/README.md for every setting.
+
+default: todomvc
+
+apps:
+  todomvc:
+    executable: hastea-todomvc
+    www: examples/todomvc/www
+    # What hastea dev runs after each reload. Main holds the foreign export
+    # that the built page calls, which GHCi cannot load twice, so start the
+    # application from its own module instead.
+    run: Example.TodoMVC.TodoMVC.runTodoMVC
+
+  react-comparison:
+    executable: hastea-react-comparison
+    www: examples/ReactComparison/www
+
+  benchmark:
+    executable: hastea-benchmark
+    www: benchmark/www

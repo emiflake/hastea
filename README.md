@@ -20,8 +20,8 @@ TodoMVC example (under `examples/todomvc`):
 | `examples/todomvc/` | The TodoMVC example executable, with its static files in `www/` |
 | `examples/ReactComparison/` | Examples from the React documentation rewritten with Hastea, and a table of the differences ([README](examples/ReactComparison/README.md)) |
 | `benchmark/` | A table of rows written with Hastea and with React, and a script that measures both ([results](benchmark/README.md)) |
-| `vendor/` | Third-party code shipped with every page: the WASI shim, bundled into one file |
-| `build.sh` | Builds the example into `dist/` |
+| `hastea-cli/` | The `hastea` command: `hastea build` and `hastea dev` ([README](hastea-cli/README.md)) |
+| `hastea.yaml` | The applications in this repository, for the `hastea` command |
 
 ## Writing views
 
@@ -151,7 +151,7 @@ You need the `wasm32-wasi-ghc` cross-compiler and `cabal` from [ghc-wasm-meta](h
 
   It installs into `~/.ghc-wasm`. Run `source ~/.ghc-wasm/env` in every new shell to put the tools on your `PATH`.
 
-- On Windows: ghc-wasm-meta has no Windows build, so use [WSL2](https://learn.microsoft.com/windows/wsl/install) with Ubuntu and follow the Linux steps above inside it. Clone the repository inside WSL (e.g. `~/hastea`) rather than building a checkout under `/mnt/c`: that is much slower, and a checkout made by Git for Windows may still have CRLF endings from before `.gitattributes` existed, which breaks `build.sh`. The server in the next section is reachable from your Windows browser at `http://localhost:8080`.
+- On Windows: ghc-wasm-meta has no Windows build, so use [WSL2](https://learn.microsoft.com/windows/wsl/install) with Ubuntu and follow the Linux steps above inside it. Clone the repository inside WSL (e.g. `~/hastea`) rather than building a checkout under `/mnt/c`: that is much slower, and a checkout made by Git for Windows may still have CRLF endings from before `.gitattributes` existed, which breaks the build. The pages that the next section serves are reachable from your Windows browser at `http://localhost:8080`.
 
 Both routes download prebuilt binaries from GitHub releases, so they need access to `github.com` as well as `gitlab.haskell.org`.
 
@@ -159,29 +159,36 @@ Hastea is tested with the GHC 9.14 flavour.
 
 ### Build, test and run
 
-Everything is one cabal package (`hastea.cabal`), built with `wasm32-wasi-cabal`, the cabal wrapper that comes with the toolchain:
+The library, its tests and the examples are one cabal package (`hastea.cabal`), built with `wasm32-wasi-cabal`, the cabal wrapper that comes with the toolchain:
 
 ```bash
 wasm32-wasi-cabal test               # build everything and run the tests
-./build.sh                           # build TodoMVC into dist/ (or: ./build.sh react-comparison)
-python3 -m http.server -d dist 8080  # then open http://localhost:8080
 ```
 
 The tests cover the two pure sublibraries, `hastea-html` and `hastea-component`, and run under `wasmtime`, which is part of the toolchain.
 
-A page is self-contained: `dist/` holds everything it loads, including a bundled copy of [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim) from `vendor/`, so it works without access to any other host.
+The examples are run with the `hastea` command from [`hastea-cli/`](hastea-cli/README.md), which reads `hastea.yaml`. It is built with an ordinary GHC, in a shell where `~/.ghc-wasm/env` has not been sourced:
 
-If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-cabal`, since `cabal.project` selects the wasm compiler; for the example, run `CABAL=cabal ./build.sh`.
+```bash
+(cd hastea-cli && cabal install)     # puts hastea in ~/.local/bin
+hastea dev                           # TodoMVC on http://localhost:8080, reloaded on every change
+hastea build                         # TodoMVC into dist/todomvc, ready to be served
+hastea dev react-comparison          # or another application from hastea.yaml
+```
+
+`hastea dev` runs the application in GHCi's browser mode, where a change is reloaded in the page in well under a second. A page built by `hastea build` is self-contained: it holds everything it loads, including a bundled copy of [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim), so it works without access to any other host.
+
+If you have your own `cabal` on your `PATH` it works in place of `wasm32-wasi-cabal`, since `cabal.project` selects the wasm compiler; set `toolchain.cabal` in `hastea.yaml` to have the `hastea` command use it too.
 
 ## Development
 
 - Formatting: [fourmolu](https://github.com/fourmolu/fourmolu), configured in `fourmolu.yaml`.
 
   ```bash
-  fourmolu -i hastea-core hastea-html hastea-component examples
+  fourmolu -i hastea-core hastea-html hastea-component examples hastea-cli
   ```
 
-- Editor support: `hie.yaml` points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work.
+- Editor support: `hie.yaml` points HLS at the cabal components. HLS has to be able to load the project with the wasm compiler for this to work. `hastea-cli/` has its own `hie.yaml` and is loaded with your ordinary GHC.
 
 - The code builds warning-free under `-Wall -Wcompat`.
 

@@ -3,8 +3,7 @@
 Ten examples from the [React documentation](https://react.dev), each showing a different React feature, rewritten with Hastea. Each one is a component with its own state, and all of them run on one page.
 
 ```bash
-./build.sh react-comparison          # from the repository root
-python3 -m http.server -d dist 8080  # then open http://localhost:8080
+hastea dev react-comparison          # then open http://localhost:8080; see hastea-cli/
 ```
 
 ## The examples

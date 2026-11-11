@@ -1,7 +1,7 @@
 // Measures the same operations on the Hastea page and on the React page, in
 // headless Chromium, and prints a table in Markdown.
 //
-//   ./build.sh benchmark              (in the repository root)
+//   hastea build benchmark            (anywhere in the repository)
 //   cd benchmark && npm install
 //   node run.cjs [runs]
 //
@@ -18,7 +18,7 @@ const modules = path.join(here, "node_modules");
 
 // Where the files of the two pages come from.
 const sites = {
-  "/hastea/": [path.join(here, "..", "dist")],
+  "/hastea/": [path.join(here, "..", "dist", "benchmark")],
   "/react/": [path.join(here, "react"), path.join(here, "www"), path.join(modules, "react", "umd"), path.join(modules, "react-dom", "umd")],
 };
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".wasm": "application/wasm" };

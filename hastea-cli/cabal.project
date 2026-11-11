@@ -1,0 +1,7 @@
+packages: .
+
+-- The hastea command runs on the machine you develop on, so unlike the
+-- library in the repository root it is built with your ordinary GHC, not
+-- the wasm cross-compiler. Build it in a shell where ~/.ghc-wasm/env has not
+-- been sourced: that file points CC and LD at the wasm C toolchain.
+tests: True
