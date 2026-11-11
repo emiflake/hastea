@@ -10,8 +10,6 @@ module ReactComparison.Focus
   )
 where
 
-import Prelude hiding (div)
-
 import Hastea.Component
 import Hastea.Dom qualified as Dom
 import Hastea.Html
@@ -31,8 +29,7 @@ focusForm = component initial update view
   update FocusPressed () = ((), [Run (Dom.focus inputId)])
 
   view () () =
-    div
-      []
+    fragment
       [ input [id_ inputId]
       , button [onClick FocusPressed] [text "Focus the input"]
       ]

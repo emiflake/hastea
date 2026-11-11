@@ -11,8 +11,6 @@ module ReactComparison.Stopwatch
   )
 where
 
-import Prelude hiding (div)
-
 import Numeric (showFFloat)
 
 import Hastea.Component
@@ -54,8 +52,7 @@ stopwatch = (component initial update view){subscriptions}
     | otherwise = Sub.none
 
   view () watch =
-    div
-      []
+    fragment
       [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
       , button [onClick StartPressed] [text "Start"]
       , button [onClick StopPressed] [text "Stop"]

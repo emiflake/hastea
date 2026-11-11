@@ -12,8 +12,6 @@ module ReactComparison.StopwatchRoot
   )
 where
 
-import Prelude hiding (div)
-
 import Control.Monad (when)
 import Data.IORef
 import Numeric (showFFloat)
@@ -65,8 +63,7 @@ run = do
           setTimeout (tick started) 10
 
       view watch =
-        div
-          []
+        fragment
           [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
           , button [onClick handleStart] [text "Start"]
           , button [onClick handleStop] [text "Stop"]

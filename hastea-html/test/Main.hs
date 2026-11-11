@@ -3,6 +3,7 @@ module Main (main) where
 import Prelude hiding (div, head, span)
 
 import Control.Applicative ((<|>))
+import Control.Exception (SomeException, evaluate, try)
 import Data.List (nub, sortOn, (\\))
 
 import Hastea.Html
@@ -376,7 +377,7 @@ data Dom
 build :: Html msg -> Dom
 build tree = case I.unwrap tree of
   I.Element tag attributes children ->
-    foldl (flip setOn) (DomElement tag [] [] (map build children)) attributes
+    foldl (flip setOn) (DomElement tag [] [] (map build (I.flatten children))) attributes
   I.Text content -> DomText content
   _ -> DomText ""
 
@@ -520,6 +521,34 @@ diffTests suite = do
   equal suite "a duplicate key creates a new node" "update{}<0:keep,new:<li>a</li>>" $
     patchOf (list [keyedItem "a"]) (list [keyedItem "a", keyedItem "a"])
 
+  -- Fragments
+  let ab = [item "a", item "b"]
+  equal suite "a fragment renders as its children" "<ul><li>a</li><li>b</li><li>c</li></ul>" $
+    renderHtml (list [fragment ab, item "c"])
+  equal suite "an empty fragment renders as nothing" "<ul></ul>" (renderHtml (list [fragment []] :: Html Msg))
+  equal suite "a fragment is the same as its children in place" "keep" $
+    patchOf (list (ab <> [item "c"])) (list [fragment ab, item "c"])
+  equal suite "fragments within fragments" "keep" $
+    patchOf (list (ab <> [item "c"])) (list [fragment [fragment [item "a"], item "b"], fragment [], item "c"])
+  -- Without keys, children are matched by position, fragment or not.
+  equal suite "a fragment that grows shifts what follows" "update{}<0:keep,1:update{}[text:b],new:<li>c</li>>" $
+    patchOf (list [fragment [item "a"], item "c"]) (list [fragment ab, item "c"])
+  equal suite "unless what follows has a key" "update{}<0:keep,new:<li>b</li>,1:keep>" $
+    patchOf (list [fragment [item "a"], keyedItem "c"]) (list [fragment ab, keyedItem "c"])
+  equal suite "the page for a fragment" (build (list (ab <> [item "c"]))) $
+    applyPatch (fst (diff (list [item "c"]) (list [fragment ab, item "c"]))) (build (list [item "c"]))
+  equal suite "a keyed fragment moves as a whole" "update{}<2:keep,0:keep,1:keep>" $
+    patchOf (list [keyed "f" (fragment ab), keyedItem "c"]) (list [keyedItem "c", keyed "f" (fragment ab)])
+  equal suite "fmap reaches into fragments" [Right (Wrapped Clicked)] $
+    fire "click" Null (unwrapFirst (fmap Wrapped (fragment [button [onClick Clicked] []])))
+
+  -- Finding failures before touching the page
+  let failing = div [] [p [] [text ("a" <> error "this view fails")]] :: Html Msg
+      forced patch = either (const "failed") (const "fine") <$> (try (evaluate (force patch)) :: IO (Either SomeException ()))
+  equal suite "force finds a failing view in a new node" "failed" =<< forced (fst (diff (text "x") failing))
+  equal suite "force finds a failing view in a changed text" "failed" =<< forced (fst (diff (div [] [p [] [text "a"]]) failing))
+  equal suite "force accepts a view that is fine" "fine" =<< forced (fst (diff (text "x") (div [] [p [] [text "a"]] :: Html Msg)))
+
   -- Lazy nodes
   let numbers = [1, 2, 3] :: [Int]
       others = [1, 2, 3] :: [Int]
@@ -535,6 +564,7 @@ diffTests suite = do
   equal suite "lazy with the same argument is skipped unevaluated" "keep" (patchOf old untouchable)
   equal suite "a skipped lazy tree is carried over from the old tree" (renderHtml old) $
     renderHtml (snd (diff old untouchable))
+  equal suite "force does not look at a skipped lazy tree" "fine" =<< forced (fst (diff old untouchable))
   equal suite "lazy below an unchanged parent" "keep" $
     patchOf (div [] [old, text "a"]) (div [] [untouchable, text "a"])
   equal suite "keyed lazy with the same argument is skipped" "keep" $
@@ -575,6 +605,11 @@ diffTests suite = do
   equal suite "random trees: a tree does not differ from itself" [] (take 3 notKept)
   equal suite "random trees are varied" True (length (nub (map renderHtml trees)) > 300)
   equal suite "random trees: enough of them can be compared with themselves" True (length plain > 100)
+
+
+-- | The first node of a tree that may be a fragment.
+unwrapFirst :: Html msg -> Html msg
+unwrapFirst = I.unwrap
 
 
 hasNoProperty :: Html msg -> Bool

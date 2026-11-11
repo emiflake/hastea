@@ -30,6 +30,7 @@ module Hastea.Html
     -- * Primitives
   , text
   , node
+  , fragment
 
     -- * Performance
   , keyed
@@ -186,6 +187,22 @@ cover, such as custom elements.
 -}
 node :: String -> [Attribute msg] -> [Html msg] -> Html msg
 node = Element
+
+
+{- | Several nodes where one is expected, without an element around them.
+
+@
+view = fragment [h1 [] [text "Title"], p [] [text "Body"]]
+@
+
+The nodes become children of whatever element the fragment is in, next to
+its other children. Use it for a view that has no single outer element.
+
+Do not put a fragment directly inside 'lazy': only its first node would be
+shown. Put 'lazy' around each node, or an element around the fragment.
+-}
+fragment :: [Html msg] -> Html msg
+fragment = Fragment
 
 
 {- | Give a node an identity among its siblings.

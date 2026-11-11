@@ -10,8 +10,6 @@ module ReactComparison.Greeting
   )
 where
 
-import Prelude hiding (div)
-
 import Debug.Trace (trace)
 
 import Hastea.Component
@@ -41,8 +39,7 @@ greetingForm = component initial update view
     AddressChanged newAddress -> (fields{address = newAddress}, [])
 
   view () fields =
-    div
-      []
+    fragment
       [ label [] [text "Name: ", input [value fields.name, onInput NameChanged]]
       , label [] [text "Address: ", input [value fields.address, onInput AddressChanged]]
       , -- Typing an address leaves the name untouched, so the greeting is

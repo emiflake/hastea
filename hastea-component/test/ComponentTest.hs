@@ -3,12 +3,12 @@ module Main (main) where
 import Prelude hiding (div, span)
 
 import Data.IORef
-import Data.List (nub)
+import Data.List (isInfixOf, nub)
 
 import Hastea.Cmd (runCmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Component
-import Hastea.Component.Internal
+import Hastea.Component.Internal (Expansion (..), Routed (..), Store, deliver, emptyStore, expand, subscriptionsOf)
 import Hastea.Html
 import Hastea.Html.Decode (Value (..))
 import Hastea.Html.Diff (diff)
@@ -34,19 +34,22 @@ data Sim msg = Sim
   { store :: IORef (Store msg)
   , received :: IORef [msg]
   -- ^ The messages that left the tree, latest first.
+  , warned :: IORef [String]
   }
 
 
 newSim :: IO (Sim msg)
-newSim = Sim <$> newIORef emptyStore <*> newIORef []
+newSim = Sim <$> newIORef emptyStore <*> newIORef [] <*> newIORef []
 
 
 -- | What "Hastea.Root.render" does, minus the page.
 showTree :: Sim msg -> Html msg -> IO (Html (Routed msg))
 showTree sim tree = do
-  (expanded, new) <- expand tree <$> readIORef sim.store
-  writeIORef sim.store new
-  pure expanded
+  expansion <- expand tree <$> readIORef sim.store
+  writeIORef sim.store expansion.store
+  modifyIORef' sim.warned (<> expansion.warnings)
+  runCmd (route sim) expansion.effects
+  pure expansion.tree
 
 
 route :: Sim msg -> Routed msg -> IO ()
@@ -73,13 +76,11 @@ newtype CounterMsg = Add Int
 
 -- | Counts clicks, in steps given as its props.
 counter :: Component Int Int CounterMsg out
-counter =
-  Component
-    { initial = const 0
-    , update = \(Add n) count -> (count + n, [])
-    , view = \step count -> button [onClick (Add step)] [text (show count)]
-    , subscriptions = const Sub.none
-    }
+counter = component initial update view
+ where
+  initial _ = 0
+  update (Add n) count = (count + n, [])
+  view step count = button [onClick (Add step)] [text (show count)]
 
 
 data ReporterMsg = Report | Again
@@ -87,17 +88,19 @@ data ReporterMsg = Report | Again
 
 -- | Tells its surroundings how often it was clicked, and can send itself a message.
 reporter :: Component () Int ReporterMsg Int
-reporter =
-  Component
-    { initial = const 0
-    , update = \msg count -> case msg of
-        Report -> (count + 1, [Emit (count + 1)])
-        Again -> (count, [Run (Cmd.perform (pure Report))])
-    , view = \() count ->
-        div [] [button [onClick Report] [text (show count)], button [onClick Again] [text "again"]]
-    , subscriptions = \count -> if count > 0 then Sub.custom "ticks" neverStarts Just else Sub.none
-    }
+reporter = (component initial update view){subscriptions}
  where
+  initial () = 0
+
+  update msg count = case msg of
+    Report -> (count + 1, [Emit (count + 1)])
+    Again -> (count, [Run (Cmd.perform (pure Report))])
+
+  view () count =
+    div [] [button [onClick Report] [text (show count)], button [onClick Again] [text "again"]]
+
+  subscriptions count = if count > 0 then Sub.custom "ticks" neverStarts Just else Sub.none
+
   neverStarts :: (ReporterMsg -> IO ()) -> IO (IO ())
   neverStarts _ = pure (pure ())
 
@@ -107,13 +110,40 @@ newtype TotalMsg = Reported Int
 
 -- | Contains a 'reporter' and shows the last number it reported.
 total :: Component () Int TotalMsg out
-total =
-  Component
-    { initial = const 0
-    , update = \(Reported n) _ -> (n, [])
-    , view = \() latest -> div [] [Reported <$> use reporter (), span [] [text (show latest)]]
-    , subscriptions = const Sub.none
+total = component initial update view
+ where
+  initial () = 0
+  update (Reported n) _ = (n, [])
+  view () latest = div [] [Reported <$> use reporter (), span [] [text (show latest)]]
+
+
+-- | Says hello to its surroundings when it appears and goodbye when it goes.
+greeter :: Component String () () Msg
+greeter =
+  (component (const ()) (\() () -> ((), [])) (\name () -> span [] [text name]))
+    { onMount = \name -> [Emit (Typed ("hello " <> name))]
+    , onUnmount = \() -> [Emit (Typed "goodbye")]
     }
+
+
+newtype LoaderMsg = Loaded String
+
+
+-- | Loads what it shows when it appears.
+loader :: Component () String LoaderMsg out
+loader =
+  (component (const "loading") (\(Loaded content) _ -> (content, [])) (\() content -> p [] [text content]))
+    { onMount = \() -> [Run (Cmd.perform (pure (Loaded "loaded")))]
+    }
+
+
+-- | A component without an element of its own around its two counters.
+pair :: Component () () () out
+pair = component (const ()) (\() () -> ((), [])) (\() () -> fragment [use counter 1, use counter 10])
+
+
+lazyFragment :: Int -> Html Msg
+lazyFragment n = fragment [text (show n), text "!"]
 
 
 -- Must be top-level functions for 'lazy' to recognise them again.
@@ -231,3 +261,62 @@ componentTests suite = do
   click lazySim [0, 0] l4
   l5 <- showTree lazySim lazily
   equal suite "handlers in a skipped subtree still reach their component" "<div><div><button>2</button></div>x</div>" (shown l5)
+
+
+  -- Appearing and going away
+  lifeSim <- newSim
+  let greeting people = ul [] [keyed name (li [] [use greeter name]) | name <- people] :: Html Msg
+      heard = reverse <$> readIORef lifeSim.received
+  _ <- showTree lifeSim (greeting ["a"])
+  equal suite "a component that appears can say so" [Typed "hello a"] =<< heard
+  _ <- showTree lifeSim (greeting ["a"])
+  equal suite "but only once" [Typed "hello a"] =<< heard
+  _ <- showTree lifeSim (greeting ["b", "a"])
+  equal suite "another one appearing does not disturb it" [Typed "hello a", Typed "hello b"] =<< heard
+  _ <- showTree lifeSim (greeting ["b"])
+  equal suite "a component that goes away can say so" [Typed "hello a", Typed "hello b", Typed "goodbye"] =<< heard
+  _ <- showTree lifeSim (text "nothing")
+  equal suite "also when everything around it goes" 4 . length =<< heard
+  _ <- showTree lifeSim (div [] [div [] [use greeter "deep"]])
+  _ <- showTree lifeSim (div [] [span [] []])
+  equal suite "also when an element above it is replaced" [Typed "hello deep", Typed "goodbye"] . drop 4 =<< heard
+  _ <- showTree lifeSim (div [] [use greeter "x"])
+  _ <- showTree lifeSim (div [] [use counter 1])
+  equal suite "also when another component takes its place" [Typed "hello x", Typed "goodbye"] . drop 6 =<< heard
+
+  loadSim <- newSim
+  let loading = div [] [use loader ()] :: Html Msg
+  before <- showTree loadSim loading
+  equal suite "a component starts in its initial state" "<div><p>loading</p></div>" (shown before)
+  loaded <- showTree loadSim loading
+  equal suite "a command started on appearing reports back to it" "<div><p>loaded</p></div>" (shown loaded)
+
+  -- Fragments
+  fragmentSim <- newSim
+  let pairs = div [] [use pair (), text "|", fragment [text "a", text "b"]] :: Html Msg
+  f1 <- showTree fragmentSim pairs
+  equal suite "a component's fragment joins the children around it" "<div><button>0</button><button>0</button>|ab</div>" (shown f1)
+  equal suite "as separate nodes" 5 $ case I.unwrap f1 of
+    I.Element _ _ children -> length children
+    _ -> 0
+  click fragmentSim [1] f1
+  click fragmentSim [0] f1
+  click fragmentSim [0] f1
+  f2 <- showTree fragmentSim pairs
+  equal suite "components in a fragment keep their own state" "<div><button>2</button><button>10</button>|ab</div>" (shown f2)
+  topSim <- newSim
+  top <- showTree topSim (use pair () :: Html Msg)
+  equal suite "a fragment can be the whole tree" "<button>0</button><button>0</button>" (shown top)
+
+  -- Warnings
+  warnSim <- newSim
+  _ <- showTree warnSim (ul [] [keyed "a" (li [] []), keyed "b" (li [] []), keyed "a" (li [] [])] :: Html Msg)
+  duplicate <- readIORef warnSim.warned
+  equal suite "duplicate keys are pointed out, once per key" [True] (map ("the key \"a\"" `isInfixOf`) duplicate)
+  writeIORef warnSim.warned []
+  _ <- showTree warnSim (div [] [lazy lazyFragment 1] :: Html Msg)
+  inLazy <- readIORef warnSim.warned
+  equal suite "a fragment directly inside lazy is pointed out" [True] (map ("inside lazy" `isInfixOf`) inLazy)
+  writeIORef warnSim.warned []
+  _ <- showTree warnSim (ul [] [keyed "a" (li [] []), keyed "b" (li [] []), fragment [text "x"]] :: Html Msg)
+  equal suite "a tree without mistakes has no warnings" [] =<< readIORef warnSim.warned

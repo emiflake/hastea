@@ -31,6 +31,7 @@ render (Text content) = showString (escapeText content)
 render (Lazy _ tree) = render tree
 render (Keyed _ tree) = render tree
 render (Extend _ fallback) = render fallback
+render (Fragment trees) = foldr (\tree rest -> render tree . rest) id trees
 render (Element tag attributes children)
   | tag `elem` voidElements = open
   | tag `elem` rawTextElements = open . rawChildren . close

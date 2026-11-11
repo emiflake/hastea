@@ -1,6 +1,6 @@
 # React examples in Hastea
 
-Nine examples from the [React documentation](https://react.dev), each showing a different React feature, rewritten with Hastea. Each one is a component with its own state, and all of them run on one page.
+Ten examples from the [React documentation](https://react.dev), each showing a different React feature, rewritten with Hastea. Each one is a component with its own state, and all of them run on one page.
 
 ```bash
 ./build.sh react-comparison          # from the repository root
@@ -20,6 +20,7 @@ python3 -m http.server -d dist 8080  # then open http://localhost:8080
 | Effects and refs (a timer) | [Stopwatch](https://react.dev/learn/referencing-values-with-refs) | [`Stopwatch.hs`](ReactComparison/Stopwatch.hs), and in React's own style in [`StopwatchRoot.hs`](ReactComparison/StopwatchRoot.hs) |
 | Refs to DOM nodes | [Focusing a text input](https://react.dev/learn/manipulating-the-dom-with-refs) | [`Focus.hs`](ReactComparison/Focus.hs) |
 | Asynchronous event handlers | [City quiz](https://react.dev/learn/reacting-to-input-with-state) | [`Quiz.hs`](ReactComparison/Quiz.hs) |
+| `useEffect` to fetch data | [Fetching data with Effects](https://react.dev/reference/react/useEffect#fetching-data-with-effects) | [`Bio.hs`](ReactComparison/Bio.hs) |
 | Using components | (the page itself) | [`Main.hs`](Main.hs) |
 
 ## Key differences in how the code is written
@@ -35,6 +36,7 @@ python3 -m http.server -d dist 8080  # then open http://localhost:8080
 | **Reading an input** | `onChange={e => setText(e.target.value)}` | `onInput Typed` | The event is decoded for you into a typed value; the message constructor is the callback. |
 | **Props** | `function ProductTable({ products })` | `Component [Product] ...`, used as `use filterableProductTable products` | Props are the component's first type parameter, checked by the compiler. A part without state is just a function: `panel :: String -> Bool -> ...`. |
 | **Callback props** | `<AddTask onAddTask={handleAddTask} />`, and the child calls `onAddTask(text)` | `Added <$> use addTask ()`, and the child returns `[Emit draft]` | The child does not receive a function. It emits a value, and the parent says with `<$>` which of its messages that becomes. |
+| **Fragments** | `<>...</>` | `fragment [...]` | The same: several nodes without an element around them. |
 | **Conditional rendering** | `{isActive ? <p>...</p> : <button>...</button>}` | `if isActive then p [] ... else button ...` | The same, in the host language without braces. |
 | **Lists** | `tasks.map(t => <Task key={t.id} task={t} />)` | `[keyed (show t.id) (li [] [use taskRow t]) \| t <- tasks]` | `key` is a wrapper function rather than a special prop. As in React, it also decides which item a component's state belongs to. |
 | **Lifting state up** | Move `useState` to the common parent, pass values and setters down | Move the state into the parent component, pass values and messages down | The same refactoring (`Accordion.hs`). |
@@ -43,6 +45,8 @@ python3 -m http.server -d dist 8080  # then open http://localhost:8080
 | **Context** | `createContext`, `useContext`, a provider | Functions of the context: `heading :: String -> Leveled msg`, and `section [heading "Title", section [...]]` | No mechanism. Parts that need the level are functions of it, and `section` calls its children with a level one deeper. The page reads like the React one, and the type says which parts depend on the level. |
 | **Effects in handlers** | The handler does it: `await submitForm(answer)` | `update` asks for it: `(state{status = Submitting}, [Run (submitForm state.answer)])` | `update` stays pure. It describes the effect, and the runtime carries it out and sends back the result as a message. |
 | **Asynchronous work** | One `async` handler: set state, `await`, set state again | Two messages: `Submitted` starts it, `Answered result` finishes it | The steps of an async function become cases of `update`. The state in between is explicit, not held in a suspended function. |
+| **`useEffect` on mount** | `useEffect(() => { fetchBio(person).then(setBio) }, [person])` | `onMount () = [Run (fetchBio "Alice")]`, and the same command from `update` when the person changes | React runs the effect again when a dependency changes. Here there is no dependency list: the request is started explicitly in the two places where it is needed. |
+| **Ignoring a stale response** | A cleanup function sets `ignore = true` | `BioFetched person result` is dropped unless `person == page.person` | The response carries what it is about, so no cancellation flag is needed. |
 | **Timers** | `setInterval` in a handler, the id kept in a `useRef`, `clearInterval` to stop | `subscriptions watch = if watch.running then Time.every 10 Ticked else Sub.none` | Declarative: say when ticks are wanted, as a function of the state. The runtime starts and stops the timer, so it cannot be leaked or started twice. |
 | **Refs to DOM nodes** | `const inputRef = useRef(null)`, `<input ref={inputRef} />`, `inputRef.current.focus()` | `input [id_ inputId]` and `[Run (Dom.focus inputId)]` | Views never see DOM nodes. The node is named by its id and acted on by a command. |
 | **Rules of hooks** | Hooks must be called in the same order on every render | None | There are no hooks, so views can use any control flow. |
@@ -52,7 +56,6 @@ python3 -m http.server -d dist 8080  # then open http://localhost:8080
 
 ## What does not carry over yet
 
-- **HTTP requests.** Commands can wait and run arbitrary `IO`, but there is no binding for `fetch` yet; the quiz only pretends to use the network, like the React original.
 - **Subscriptions other than time**, such as key presses or window resizing. `Hastea.Sub.custom` is the way to add them.
 - **Reading from the DOM**, such as measuring an element or scrolling to it. Only `focus` and `blur` exist.
 - **Reading a component's state from outside.** As in React, a parent only learns what a component emits. State that two parts need has to live in their common parent.

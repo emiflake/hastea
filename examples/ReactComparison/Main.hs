@@ -12,6 +12,7 @@ import Hastea.Html
 import Hastea.Html.Attributes (className)
 
 import ReactComparison.Accordion (accordion)
+import ReactComparison.Bio (bioPage)
 import ReactComparison.Counter (counter)
 import ReactComparison.Focus (focusForm)
 import ReactComparison.Greeting (greetingForm)
@@ -43,6 +44,7 @@ page =
     , example "Effects and refs" [use stopwatch ()]
     , example "Refs to DOM nodes" [use focusForm ()]
     , example "Asynchronous work" [use quiz ()]
+    , example "useEffect" [use bioPage ()]
     ]
 
 

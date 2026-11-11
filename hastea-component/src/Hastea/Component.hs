@@ -59,14 +59,22 @@ data Component props state msg out = Component
   , view :: props -> state -> Html msg
   , subscriptions :: state -> Sub msg
   -- ^ What to listen to, besides the view, while the state is like this.
+  , onMount :: props -> [Effect msg out]
+  -- ^ What should happen when the component appears: loading what it shows,
+  -- for example.
+  , onUnmount :: state -> [Effect msg out]
+  -- ^ What should happen when the component goes away. Messages from
+  -- commands started here have nowhere to go, so this is for telling the
+  -- surroundings and for cleaning up.
   }
 
 
-{- | A component from its three main parts, without subscriptions. To add
-those, use record syntax:
+{- | A component from its three main parts. It has no subscriptions and
+does nothing when it appears or goes away. To change that, use record
+syntax:
 
 @
-(component initial update view){subscriptions = subscriptions}
+(component initial update view){subscriptions, onMount = \\userId -> [Run (load userId)]}
 @
 -}
 component ::
@@ -75,7 +83,7 @@ component ::
   (props -> state -> Html msg) ->
   Component props state msg out
 component initial update view =
-  Component{initial, update, view, subscriptions = const Sub.none}
+  Component{initial, update, view, subscriptions = const Sub.none, onMount = const [], onUnmount = const []}
 
 
 -- | Place a component in a view.
@@ -87,4 +95,6 @@ use definition props =
       , view = definition.view props
       , update = definition.update
       , subscriptions = definition.subscriptions
+      , onMount = definition.onMount props
+      , onUnmount = definition.onUnmount
       }

@@ -13,6 +13,7 @@ module Hastea.Html.Internal
   , Ref (..)
   , sameRefs
   , unwrap
+  , flatten
   , Extension (..)
   , fromExtension
   , Attribute (..)
@@ -45,6 +46,10 @@ data Html msg
     rather than rebuilt when a list is reordered. See 'Hastea.Html.keyed'.
     -}
     Keyed String (Html msg)
+  | {- | Several nodes in a row, in a place where one is expected. See
+    'Hastea.Html.fragment'.
+    -}
+    Fragment [Html msg]
   | {- | A node that another library gives a meaning to, such as a component
     with state. This package does not know what it is: it only carries the
     value along, and treats the node as the tree given with it, which is
@@ -61,17 +66,41 @@ instance Functor Html where
   -- The mapped subtree also depends on the mapping function.
   fmap f (Lazy refs tree) = Lazy (Ref f : refs) (fmap f tree)
   fmap f (Keyed key tree) = Keyed key (fmap f tree)
+  fmap f (Fragment trees) = Fragment (map (fmap f) trees)
   fmap f (Extend extension fallback) = Extend (fmap f extension) (fmap f fallback)
 
 
 {- | The element or text node inside any 'Lazy' and 'Keyed' wrappers. An
 extension counts as the tree it falls back to.
+
+This is for places that hold exactly one node. A fragment that is still
+there (see 'flatten') counts as its first node, or as nothing.
 -}
 unwrap :: Html msg -> Html msg
 unwrap (Lazy _ tree) = unwrap tree
 unwrap (Keyed _ tree) = unwrap tree
 unwrap (Extend _ fallback) = unwrap fallback
+unwrap (Fragment (tree : _)) = unwrap tree
+unwrap (Fragment []) = Text ""
 unwrap tree = tree
+
+
+{- | Replace the fragments in a list of children by what they contain, so
+that each entry is one node.
+
+A fragment with a key passes it on: its children get keys that start with
+it. A fragment inside a 'Lazy' node is left alone, because looking for it
+would mean computing the lazy tree.
+-}
+flatten :: [Html msg] -> [Html msg]
+flatten = concatMap spread
+ where
+  spread (Fragment trees) = flatten trees
+  spread (Keyed key (Fragment trees)) = zipWith (under key) [0 :: Int ..] (flatten trees)
+  spread tree = [tree]
+
+  under key _ (Keyed inner tree) = Keyed (key <> "/" <> inner) tree
+  under key index tree = Keyed (key <> "/" <> show index) tree
 
 
 {- | A value of some other library's type, which must say how the messages

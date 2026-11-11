@@ -9,7 +9,7 @@ module ReactComparison.Accordion
   )
 where
 
-import Prelude hiding (div, span)
+import Prelude hiding (span)
 
 import Hastea.Component
 import Hastea.Html
@@ -29,8 +29,7 @@ accordion = component initial update view
   update (Shown index) _ = (index, [])
 
   view () activeIndex =
-    div
-      []
+    fragment
       [ h2 [] [text "Almaty, Kazakhstan"]
       , panel "About" (activeIndex == 0) (Shown 0) about
       , panel "Etymology" (activeIndex == 1) (Shown 1) etymology

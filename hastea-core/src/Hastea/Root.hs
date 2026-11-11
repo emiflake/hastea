@@ -22,6 +22,15 @@ Handlers are therefore always those of the latest view.
 The root also keeps the state of the components in the view
 ("Hastea.Component"). When a component changes its state, the root shows
 the last tree it was given again, by itself.
+
+== When something goes wrong
+
+A view or an update function that fails does not take the page down. The
+failure is written to the browser console as an error, and the page stays
+as it was: a view is computed completely before anything on the page is
+changed. Likely mistakes, such as two children with the same key or an
+event that its handler could not make sense of, are written to the console
+as warnings, each one once.
 -}
 module Hastea.Root
   ( Root
@@ -30,17 +39,19 @@ module Hastea.Root
   )
 where
 
+import Control.Exception (SomeException, displayException, evaluate, try)
 import Control.Monad
 import Data.IORef
 
 import Hastea.Cmd (runCmd)
 import Hastea.Component.Internal
 import Hastea.Decode (runDecode)
-import Hastea.Html.Diff (diff)
+import Hastea.Html.Diff (diff, force)
 import Hastea.Html.Internal
 import Hastea.Internal.Commit
 import Hastea.Internal.Foreign.DOM (DOMNode)
 import Hastea.Internal.Foreign.DOM qualified as DOM
+import Hastea.Internal.Foreign.Effects qualified as Console
 import Hastea.Internal.Foreign.Types (JSFunction)
 import Hastea.Internal.Sub (Manager, newManager, sync)
 
@@ -52,14 +63,17 @@ data Root msg = Root
   , given :: IORef (Maybe (Html msg))
   -- ^ The tree that was last asked for.
   , current :: IORef (Maybe (Html (Routed msg)))
-  -- ^ The tree that is on the page: the one asked for, with each component
-  -- replaced by its view.
+  -- ^ What is on the page: an element standing for the container, whose
+  -- children are the tree asked for with each component replaced by its
+  -- view.
   , components :: IORef (Store msg)
   -- ^ The state of the components in the tree.
   , subscriptions :: Manager (Routed msg)
   -- ^ The running subscriptions of the components.
   , listening :: IORef [String]
   -- ^ The events the container already listens for.
+  , warned :: IORef [String]
+  -- ^ The warnings already given.
   , refreshScheduled :: IORef Bool
   , onFrame :: JSFunction
   -- ^ Shows the tree again, after a component has changed.
@@ -82,6 +96,7 @@ mount elementId dispatch =
       components <- newIORef emptyStore
       subscriptions <- newManager
       listening <- newIORef []
+      warned <- newIORef []
       refreshScheduled <- newIORef False
       -- The callback needs the root, which needs the callback.
       refresh <- newIORef (pure ())
@@ -95,6 +110,7 @@ mount elementId dispatch =
               , components
               , subscriptions
               , listening
+              , warned
               , refreshScheduled
               , onFrame
               }
@@ -106,30 +122,38 @@ mount elementId dispatch =
 
 -- | Show a tree, changing as little of the page as possible.
 render :: Root msg -> Html msg -> IO ()
-render root tree = do
+render root tree = guarded root "The view could not be shown" $ do
   writeIORef root.given (Just tree)
-  (new, store) <- expand tree <$> readIORef root.components
-  writeIORef root.components store
-  readIORef root.current >>= \case
-    Nothing -> do
-      DOM.removeAllChildren root.container
-      create (listen root) new >>= DOM.appendChild root.container
-      writeIORef root.current (Just new)
-    Just old -> do
-      let (patch, new') = diff old new
-      DOM.childAt root.container 0 >>= mapM_ (\node -> commit (listen root) node patch)
-      writeIORef root.current (Just new')
-  sync (route root) root.subscriptions (subscriptionsOf store)
+  expansion <- expand tree <$> readIORef root.components
+  old <-
+    readIORef root.current >>= \case
+      Just old -> pure old
+      Nothing -> containerWith [] <$ DOM.removeAllChildren root.container
+  let (patch, new) = diff old (containerWith [expansion.tree])
+  -- Compute the view completely first. If it fails, it does so here, with
+  -- the page and the state of the components still as they were.
+  evaluate (force patch)
+  writeIORef root.components expansion.store
+  void (commit (listen root) root.container patch)
+  writeIORef root.current (Just new)
+  mapM_ (warn root) expansion.warnings
+  sync (route root) root.subscriptions (subscriptionsOf expansion.store)
+  runCmd (route root) expansion.effects
+ where
+  -- The tree may be a fragment, so it is treated as the children of an
+  -- element that stands for the container.
+  containerWith = Element "" [] . flatten
 
 
 -- Pass a message on: out of the root, or to the component it is for.
 route :: Root msg -> Routed msg -> IO ()
-route root = \case
+route root message = guarded root "A message could not be handled" $ case message of
   Out msg -> root.dispatch msg
   Local path msg -> do
     store <- readIORef root.components
     -- A message for a component that is gone is dropped.
-    forM_ (deliver path msg store) $ \(store', cmd) -> do
+    delivered <- evaluate (deliver path msg store)
+    forM_ delivered $ \(store', cmd) -> do
       writeIORef root.components store'
       -- The component may want other subscriptions in its new state.
       sync (route root) root.subscriptions (subscriptionsOf store')
@@ -138,6 +162,23 @@ route root = \case
         writeIORef root.refreshScheduled True
         DOM.requestAnimationFrame root.onFrame
       runCmd (route root) cmd
+
+
+-- Run an action, and if it fails, say so in the console and carry on.
+guarded :: Root msg -> String -> IO () -> IO ()
+guarded _ what action =
+  try action >>= \case
+    Right () -> pure ()
+    Left failure -> Console.reportError ("Hastea: " <> what <> ": " <> displayException (failure :: SomeException))
+
+
+-- Point out a likely mistake, once.
+warn :: Root msg -> String -> IO ()
+warn root warning = do
+  given <- readIORef root.warned
+  unless (warning `elem` given) $ do
+    writeIORef root.warned (warning : given)
+    Console.warn ("Hastea: " <> warning)
 
 
 -- Make sure the container listens for an event.
@@ -164,21 +205,22 @@ handle root event val = do
   run (handlers : outer) = do
     forM_ handlers $ \(options, decoder) -> do
       when options.preventDefault (DOM.preventDefault val)
-      -- A handler whose decoder fails does not apply to this event.
-      mapM_ (route root) (runDecode decoder val)
+      case runDecode decoder val of
+        Right message -> route root message
+        Left problem ->
+          warn root ("A handler for the " <> show event <> " event ignored it, because it could not read the event: " <> problem)
     unless (any (\(options, _) -> options.stopPropagation) handlers) (run outer)
 
 
-{- | The attributes of the elements along a path of child positions,
-outermost first. The first position is that of the tree itself, which is the
-only child of the container.
+{- | The attributes of the elements along a path of child positions below
+the container, outermost first.
 -}
 along :: [Int] -> Maybe (Html msg) -> [[Attribute msg]]
-along (0 : path) (Just tree) = go path (unwrap tree)
+along path (Just tree) = drop 1 (go path (unwrap tree))
  where
   go rest (Element _ attributes children) =
     attributes : case rest of
       index : deeper | child : _ <- drop index children -> go deeper (unwrap child)
       _ -> []
   go _ _ = []
-along _ _ = []
+along _ Nothing = []

@@ -18,18 +18,20 @@ module Hastea.Component.Internal
   , Segment (..)
   , Store
   , emptyStore
+  , Expansion (..)
   , expand
   , deliver
   , subscriptionsOf
   )
 where
 
-import Data.Bifunctor (first, second)
+import Data.Bifunctor (second)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
-import Data.List (mapAccumL)
+import Data.List (mapAccumL, nub, (\\))
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Set qualified as Set
 import Data.Typeable (Typeable)
 
 import Hastea.Cmd (Cmd)
@@ -53,6 +55,8 @@ instance Functor Mount where
         , view = embedded.view
         , update = \msg state -> second (map (fmap f)) (embedded.update msg state)
         , subscriptions = embedded.subscriptions
+        , onMount = map (fmap f) embedded.onMount
+        , onUnmount = map (fmap f) . embedded.onUnmount
         }
 
 
@@ -65,6 +69,8 @@ data Embedded state inner msg = Embedded
   , view :: state -> Html inner
   , update :: inner -> state -> (state, [Effect inner msg])
   , subscriptions :: state -> Sub inner
+  , onMount :: [Effect inner msg]
+  , onUnmount :: state -> [Effect inner msg]
   }
 
 
@@ -94,6 +100,7 @@ embed embedded = Extend (Extension (Mount embedded)) (inert (embedded.view embed
   inert (Text content) = Text content
   inert (Lazy _ tree) = inert tree
   inert (Keyed key tree) = Keyed key (inert tree)
+  inert (Fragment trees) = Fragment (map inert trees)
   inert (Extend _ fallback) = inert fallback
 
   plain :: Attribute a -> Maybe (Attribute b)
@@ -154,6 +161,8 @@ data Mounted msg = Mounted
   -- message is not of the component's type.
   , sub :: Sub (Routed msg)
   -- ^ The subscriptions in the current state.
+  , unmount :: Maybe Dynamic -> Cmd (Routed msg)
+  -- ^ Given the last state: what the component asks for as it goes away.
   }
 
 
@@ -171,81 +180,161 @@ childStore :: Segment -> Store msg -> Store msg
 childStore segment store = fromMaybe emptyStore (Map.lookup segment store.children)
 
 
+-- | What 'expand' makes of a tree.
+data Expansion msg = Expansion
+  { tree :: Html (Routed msg)
+  -- ^ The tree with every component replaced by its view.
+  , store :: Store msg
+  -- ^ The store to use from now on.
+  , effects :: Cmd (Routed msg)
+  -- ^ What the components that appeared or went away ask for.
+  , warnings :: [String]
+  -- ^ Likely mistakes in the tree.
+  }
+
+
 {- | Replace every component in a tree by its view in its current state.
 
-Returns the store to use from now on. In it, components that appear for the
-first time have their initial state, and components that are no longer in
-the tree have none.
+In the new store, components that appear for the first time have their
+initial state, and components that are no longer in the tree have none.
 
 A lazy subtree is not looked at if neither what it was computed from nor
 the state of any component in it has changed.
 -}
-expand :: Html msg -> Store msg -> (Html (Routed msg), Store msg)
+expand :: Html msg -> Store msg -> Expansion msg
 expand = go Out []
 
 
 {- The first argument says how a message of the tree being expanded reaches
 whoever shows the whole tree. The path is kept in reverse.
+
+Whatever case applies has to account for all of the old store: the
+components in the parts it does not carry over have gone away.
 -}
-go :: forall m top. (m -> Routed top) -> Path -> Html m -> Store top -> (Html (Routed top), Store top)
+go :: forall m top. (m -> Routed top) -> Path -> Html m -> Store top -> Expansion top
 go send path tree store = case tree of
-  Text content -> (Text content, emptyStore)
-  Keyed key inner -> first (Keyed key) (go send path inner store)
+  Text content ->
+    Expansion{tree = Text content, store = emptyStore, effects = unmountAll store, warnings = []}
+  Keyed key inner ->
+    let inside = go send path inner store
+     in Expansion{tree = Keyed key inside.tree, store = inside.store, effects = inside.effects, warnings = inside.warnings}
   Lazy refs inner ->
-    let (expanded, evaluated) = go send path inner store
+    let inside = go send path inner store
         -- The store is part of what the expanded tree is computed from.
-        store' = evaluated{lazyRefs = Just refs}
+        store' = inside.store{lazyRefs = Just refs}
      in case store.lazyRefs of
-          Just oldRefs | sameRefs oldRefs refs -> (Lazy (Ref store : refs) expanded, store)
-          _ -> (Lazy (Ref store' : refs) expanded, store')
+          Just oldRefs
+            | sameRefs oldRefs refs ->
+                Expansion{tree = Lazy (Ref store : refs) inside.tree, store, effects = mempty, warnings = []}
+          _ ->
+            Expansion
+              { tree = Lazy (Ref store' : refs) inside.tree
+              , store = store'
+              , effects = inside.effects
+              , warnings = [fragmentInLazy | isFragment inner] <> inside.warnings
+              }
   Element tag attributes children ->
-    let segments = snd (mapAccumL (segment tag) 0 children)
-        results =
-          [ (key, go send (key : path) child (childStore key store))
-          | (key, child) <- zip segments children
-          ]
-     in ( Element tag (map (fmap send) attributes) [expanded | (_, (expanded, _)) <- results]
-        , emptyStore{children = Map.fromList [(key, below) | (key, (_, below)) <- results, not (isEmpty below)]}
-        )
+    let below = contents tag children
+     in Expansion{tree = Element tag (map (fmap send) attributes) (flatten below.trees), store = below.store, effects = below.effects, warnings = below.warnings}
+  Fragment children ->
+    let below = contents "" children
+     in Expansion{tree = Fragment below.trees, store = below.store, effects = below.effects, warnings = below.warnings}
   -- An extension of some other kind is shown as what it falls back to.
   Extend extension fallback -> case fromExtension extension of
     Nothing -> go send path fallback store
-    Just mount -> mounted mount
+    Just mount -> component mount
  where
+  -- The children of an element or a fragment.
+  contents :: String -> [Html m] -> Contents top
+  contents tag children =
+    let segments = snd (mapAccumL (segment tag) 0 children)
+        results = [(key, go send (key : path) child (childStore key store)) | (key, child) <- zip segments children]
+        keys = [key | Named _ key <- segments]
+        gone = store.children `Map.withoutKeys` Set.fromList segments
+     in Contents
+          { trees = [result.tree | (_, result) <- results]
+          , store = emptyStore{children = Map.fromList [(key, result.store) | (key, result) <- results, not (isEmpty result.store)]}
+          , effects = unmountHere store <> foldMap unmountAll gone <> foldMap (\(_, result) -> result.effects) results
+          , warnings =
+              [duplicateKey tag key | key <- nub (keys \\ nub keys)]
+                <> concatMap (\(_, result) -> result.warnings) results
+          }
+
   segment :: String -> Int -> Html m -> (Int, Segment)
   segment tag unkeyed (Keyed key _) = (unkeyed, Named tag key)
   segment tag unkeyed _ = (unkeyed + 1, At tag unkeyed)
 
-  mounted :: Mount m -> (Html (Routed top), Store top)
-  mounted (Mount embedded) =
+  component :: Mount m -> Expansion top
+  component (Mount embedded) =
     let here = reverse path
         -- A state of another type belongs to a component that was here before.
         current = store.state >>= \stored -> (,) stored <$> fromDynamic stored
         (dynamic, state) = fromMaybe (toDyn embedded.initial, embedded.initial) current
+        -- What was here before a component that is new has gone away.
+        (before, appearing) = case current of
+          Just _ -> (store{mounted = Nothing, children = Map.delete Inside store.children}, [])
+          Nothing -> (store, embedded.onMount)
+        inside =
+          go sendInner (Inside : path) (embedded.view state) $
+            if null current then emptyStore else childStore Inside store
         sendInner inner = Local here (toDyn inner)
-        (expanded, below) = go sendInner (Inside : path) (embedded.view state) (childStore Inside store)
-        handle message stored = do
-          inner <- fromDynamic message
-          let (next, effects) = embedded.update inner (fromMaybe embedded.initial (stored >>= fromDynamic))
-          pure (toDyn next, foldMap toCmd effects, subscriptionsIn next)
         toCmd (Run cmd) = sendInner <$> cmd
         toCmd (Emit out) = Cmd.perform (pure (send out))
+        handle message stored = do
+          inner <- fromDynamic message
+          let (next, asked) = embedded.update inner (fromMaybe embedded.initial (stored >>= fromDynamic))
+          -- A state that cannot be computed fails here, not when it is next used.
+          next `seq` pure (toDyn next, foldMap toCmd asked, subscriptionsIn next)
+        unmount stored = foldMap toCmd (embedded.onUnmount (fromMaybe embedded.initial (stored >>= fromDynamic)))
         -- Named after the place, to tell apart the subscriptions of several
         -- uses of one component.
         subscriptionsIn at = prefixed (show here <> " ") (sendInner <$> embedded.subscriptions at)
-     in ( expanded
-        , Store
-            { state = Just dynamic
-            , mounted =
-                Just
-                  Mounted
-                    { handle
-                    , sub = subscriptionsIn state
-                    }
-            , lazyRefs = Nothing
-            , children = Map.fromList [(Inside, below) | not (isEmpty below)]
-            }
-        )
+     in Expansion
+          { tree = inside.tree
+          , store =
+              Store
+                { state = Just dynamic
+                , mounted = Just Mounted{handle, unmount, sub = subscriptionsIn state}
+                , lazyRefs = Nothing
+                , children = Map.fromList [(Inside, inside.store) | not (isEmpty inside.store)]
+                }
+          , effects = unmountAll before <> foldMap toCmd appearing <> inside.effects
+          , warnings = inside.warnings
+          }
+
+  isFragment (Keyed _ inner) = isFragment inner
+  isFragment (Fragment _) = True
+  isFragment _ = False
+
+
+-- What 'go' makes of the children of a node.
+data Contents msg = Contents
+  { trees :: [Html (Routed msg)]
+  , store :: Store msg
+  , effects :: Cmd (Routed msg)
+  , warnings :: [String]
+  }
+
+
+-- What the component at a place asks for when it goes away.
+unmountHere :: Store msg -> Cmd (Routed msg)
+unmountHere store = foldMap (\gone -> gone.unmount store.state) store.mounted
+
+
+-- The same for a place and everything below it.
+unmountAll :: Store msg -> Cmd (Routed msg)
+unmountAll store = unmountHere store <> foldMap unmountAll store.children
+
+
+duplicateKey :: String -> String -> String
+duplicateKey tag key =
+  "Two children of <" <> tag <> "> have the key " <> show key
+    <> ". Keys must be unique among siblings: one of the two is treated as new each time, and components in them share their state."
+
+
+fragmentInLazy :: String
+fragmentInLazy =
+  "A fragment is directly inside lazy, so only its first node is shown. Put lazy around each node instead, or an element around the fragment."
 
 
 {- | Give a message to the component at a path. Returns the store with the
@@ -257,7 +346,7 @@ deliver [] message store = do
   component <- store.mounted
   (next, cmd, sub) <- component.handle message store.state
   pure
-    ( store{state = Just next, mounted = Just Mounted{handle = component.handle, sub}, lazyRefs = Nothing}
+    ( store{state = Just next, mounted = Just Mounted{handle = component.handle, unmount = component.unmount, sub}, lazyRefs = Nothing}
     , cmd
     )
 deliver (segment : rest) message store = do

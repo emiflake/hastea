@@ -54,6 +54,8 @@ library hastea-html
     Hastea.Html.Events
     Hastea.Html.Internal
     Hastea.Html.Render
+    Hastea.Svg
+    Hastea.Svg.Attributes
 
   build-depends:
     , base        >=4.16 && <5
@@ -112,6 +114,7 @@ library
     Hastea.Async
     Hastea.Decode
     Hastea.Dom
+    Hastea.Http
     Hastea.Root
     Hastea.Time
 
@@ -124,6 +127,8 @@ library
     , Hastea.Html.Attributes
     , Hastea.Html.Events
     , Hastea.Sub
+    , Hastea.Svg
+    , Hastea.Svg.Attributes
 
   other-modules:
     Hastea.Internal.Commit
@@ -161,6 +166,7 @@ executable hastea-react-comparison
   main-is:        Main.hs
   other-modules:
     ReactComparison.Accordion
+    ReactComparison.Bio
     ReactComparison.Counter
     ReactComparison.Focus
     ReactComparison.Greeting

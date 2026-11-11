@@ -6,16 +6,16 @@ This lists the gaps between Hastea and React that are in our power to close. It 
 Items are grouped by how much they hurt a real application. The performance items come from reading the code; see [[file:benchmark/README.md][the benchmark]] for measurements.
 
 * Things you hit in the first real application
-  - [ ] *Acting when a component appears or disappears.* A component cannot ask for a command when it is first shown ("fetch data on mount") or clean up when it goes away. React has ~useEffect~.
-  - [ ] *Effects.* There is no HTTP, no routing or URL handling, no local storage, and there are no keyboard or window subscriptions. Only timers and focus exist.
-  - [ ] *Fragments.* A component must have exactly one root element.
+  - [X] *Acting when a component appears or disappears.* ~onMount~ and ~onUnmount~.
+  - [-] *Effects.* There are timers, focus and HTTP. Still missing: routing and URL handling, local storage, keyboard and window subscriptions.
+  - [X] *Fragments.* ~fragment~.
   - [ ] *Portals*, to show a modal or a tooltip elsewhere on the page.
-  - [ ] *SVG.* Elements are created without a namespace, so ~svg~ and its children do not render.
+  - [X] *SVG.* ~Hastea.Svg~; elements inside ~svg~ are created in the SVG namespace.
   - [ ] *DOM access* beyond focus and blur by id: measuring an element, scrolling to it, holding a reference to it.
 
 * Robustness
-  - [ ] *Errors vanish.* A decoder that fails drops the event without a word, and an exception in ~update~ or ~view~ has nothing to catch it. React has error boundaries and loud warnings.
-  - [ ] *Mistakes are not detected.* Duplicate keys silently share state. React warns in development.
+  - [X] *Errors vanish.* Failures in ~update~ and ~view~ are now caught and reported, with the page left as it was, and a decoder that fails gives a warning.
+  - [X] *Mistakes are not detected.* Duplicate keys and a fragment directly inside ~lazy~ now give a warning.
   - [ ] *A ~lazy~ that never skips gives no hint* that it is not working.
   - [ ] *Event lookup trusts the page.* If something else inserts a node under the root (a browser extension, say), events can miss their handlers. React ties each DOM node to its component directly.
   - [ ] *Controlled inputs are naive.* ~value~ is assigned again on every render, with no special handling of text composition (IME).

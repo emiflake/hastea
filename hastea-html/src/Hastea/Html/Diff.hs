@@ -8,6 +8,7 @@ without a browser.
 -}
 module Hastea.Html.Diff
   ( diff
+  , force
   , Patch (..)
   , Children (..)
   , ChildOp (..)
@@ -84,6 +85,9 @@ diff old new = case new of
   Keyed key inner -> second (Keyed key) (diff old inner)
   -- Whatever gives extensions a meaning replaces them before diffing.
   Extend _ fallback -> diff old fallback
+  -- Fragments among children are spread out by 'diffChildren'. One that is
+  -- still here is in a place for a single node.
+  Fragment _ -> diff old (unwrap new)
   Lazy refs inner
     | Lazy oldRefs _ <- withoutKey old
     , sameRefs oldRefs refs ->
@@ -101,6 +105,52 @@ diff old new = case new of
               , Element tag attributes children'
               )
     _ -> (Replace new, new)
+
+
+{- | Compute a patch all the way down, including the trees of the nodes it
+creates. A view that fails does so here, rather than in the middle of
+changing the page. Subtrees that the patch keeps are not looked at.
+-}
+force :: Patch msg -> ()
+force patch = case patch of
+  Keep -> ()
+  Replace tree -> forceTree tree
+  SetText content -> forceString content
+  Update changes children -> foldr (seq . forceChange) (forceChildren children) changes
+ where
+  forceChange (Set attribute) = forceAttribute attribute
+  forceChange (Clear attribute) = forceAttribute attribute
+  forceChange (Listen event) = forceString event
+
+  forceChildren (InPlace patches) = foldr (seq . force) () patches
+  forceChildren (Rearrange ops) = foldr (seq . forceOp) () ops
+
+  forceOp (Reuse index childPatch) = index `seq` force childPatch
+  forceOp (Create tree) = forceTree tree
+
+
+forceTree :: Html msg -> ()
+forceTree tree = case tree of
+  Element tag attributes children ->
+    forceString tag `seq` foldr (seq . forceAttribute) (foldr (seq . forceTree) () children) attributes
+  Text content -> forceString content
+  Lazy _ inner -> forceTree inner
+  Keyed key inner -> forceString key `seq` forceTree inner
+  Fragment trees -> foldr (seq . forceTree) () trees
+  Extend _ fallback -> forceTree fallback
+
+
+forceAttribute :: Attribute msg -> ()
+forceAttribute attribute = case attribute of
+  Attribute key value -> forceString key `seq` forceString value
+  BoolAttribute key value -> forceString key `seq` value `seq` ()
+  Property key (PropertyString value) -> forceString key `seq` forceString value
+  Property key (PropertyBool value) -> forceString key `seq` value `seq` ()
+  Listener event _ decoder -> forceString event `seq` decoder `seq` ()
+
+
+forceString :: String -> ()
+forceString = foldr seq ()
 
 
 withoutKey :: Html msg -> Html msg
@@ -127,10 +177,12 @@ key. Matched pairs are diffed; unmatched new children are created and
 unmatched old children removed.
 -}
 diffChildren :: [Html msg] -> [Html msg] -> (Children msg, [Html msg])
-diffChildren olds news
+diffChildren unflattenedOlds unflattenedNews
   | inPlace = (InPlace [patch | Reuse _ patch <- ops], news')
   | otherwise = (Rearrange ops, news')
  where
+  olds = flatten unflattenedOlds
+  news = flatten unflattenedNews
   indexed = zip [0 ..] olds
   -- With duplicate keys, the first one is the one that gets matched.
   keyedOlds = Map.fromListWith (\_ first -> first) [(key, old) | old@(_, Keyed key _) <- indexed]

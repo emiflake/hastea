@@ -11,8 +11,6 @@ module ReactComparison.Quiz
   )
 where
 
-import Prelude hiding (div)
-
 import Data.Char (toLower)
 
 import Hastea.Cmd (Cmd)
@@ -68,8 +66,7 @@ submitForm answer = Time.after 1500 (Answered result)
 
 viewForm :: Quiz -> Html Msg
 viewForm state =
-  div
-    []
+  fragment
     [ h2 [] [text "City quiz"]
     , p [] [text "In which city is there a billboard that turns air into drinkable water?"]
     , form

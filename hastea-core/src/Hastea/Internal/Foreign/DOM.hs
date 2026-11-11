@@ -6,6 +6,10 @@ module Hastea.Internal.Foreign.DOM
   , getElementById
   , createElement
   , createTextNode
+  , Namespace
+  , htmlNamespace
+  , namespaceInside
+  , parentNode
 
     -- * Attributes and properties
   , setAttribute
@@ -54,6 +58,14 @@ foreign import javascript unsafe "document.getElementById($1)"
   ffi_getElementById :: JSString -> IO JSVal
 foreign import javascript unsafe "document.createElement($1)"
   ffi_createElement :: JSString -> IO JSVal
+foreign import javascript unsafe "document.createElementNS($1, $2)"
+  ffi_createElementNS :: JSString -> JSString -> IO JSVal
+
+
+-- Inside <foreignObject>, SVG gives way to HTML again.
+foreign import javascript unsafe "(($1).localName === 'foreignObject' ? null : ($1).namespaceURI) ?? 'http://www.w3.org/1999/xhtml'"
+  ffi_namespaceInside :: JSVal -> IO JSString
+foreign import javascript unsafe "($1).parentNode" ffi_parentNode :: JSVal -> IO JSVal
 foreign import javascript unsafe "document.createTextNode($1)"
   ffi_createTextNode :: JSString -> IO JSVal
 foreign import javascript unsafe "($1).setAttribute($2, $3)"
@@ -103,9 +115,27 @@ getElementById :: String -> IO (Maybe DOMNode)
 getElementById elemId = nullable <$> ffi_getElementById (toJSString elemId)
 
 
-createElement :: String -> IO DOMNode
-createElement tag =
-  DOMNode <$> ffi_createElement (toJSString tag)
+-- | The namespace an element is created in: HTML, SVG or MathML.
+type Namespace = String
+
+
+htmlNamespace :: Namespace
+htmlNamespace = "http://www.w3.org/1999/xhtml"
+
+
+createElement :: Namespace -> String -> IO DOMNode
+createElement namespace tag
+  | namespace == htmlNamespace = DOMNode <$> ffi_createElement (toJSString tag)
+  | otherwise = DOMNode <$> ffi_createElementNS (toJSString namespace) (toJSString tag)
+
+
+-- | The namespace that the children of a node are in, unless they say otherwise.
+namespaceInside :: DOMNode -> IO Namespace
+namespaceInside node = fromJSString <$> ffi_namespaceInside (coerce node)
+
+
+parentNode :: DOMNode -> IO (Maybe DOMNode)
+parentNode node = nullable <$> ffi_parentNode (coerce node)
 
 
 createTextNode :: String -> IO DOMNode

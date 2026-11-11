@@ -14,8 +14,6 @@ module ReactComparison.Tasks
   )
 where
 
-import Prelude hiding (div)
-
 import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (checked, placeholder, type_, value)
@@ -60,8 +58,7 @@ taskApp = component initial update view
   update msg tasks = (reducer msg tasks, [])
 
   view () tasks =
-    div
-      []
+    fragment
       [ h1 [] [text "Prague itinerary"]
       , Added <$> use addTask ()
       , ul [] [keyed (show task.id) (li [] [use taskRow task]) | task <- tasks.all]
@@ -99,8 +96,7 @@ addTask = component initial update view
     AddPressed -> ("", [Emit draft])
 
   view () draft =
-    div
-      []
+    fragment
       [ input [placeholder "Add task", value draft, onInput Typed]
       , button [onClick AddPressed] [text "Add"]
       ]
