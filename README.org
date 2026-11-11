@@ -13,6 +13,7 @@
   | ~hastea-core/~     | The ~hastea~ library (~Hastea.App~, ~Hastea.Root~, ~Hastea.Cmd~, ~Hastea.Decode~, ~Hastea.Async~): the runtime |
   | ~hastea-html/~      | The ~hastea-html~ sublibrary and its tests: HTML elements, attributes, events, decoders and diffing          |
   | ~examples/todomvc/~ | The TodoMVC example executable, with its static files in ~www/~                                              |
+  | ~examples/ReactComparison/~ | Examples from the React documentation rewritten with Hastea, and a table of the differences ([[file:examples/ReactComparison/README.md][README]]) |
   | ~build.sh~          | Builds the example into ~dist/~                                                                              |
 
 * Writing views
@@ -81,7 +82,7 @@
 
    #+BEGIN_SRC bash
    wasm32-wasi-cabal test               # build everything and run the tests
-   ./build.sh                           # build the example into dist/
+   ./build.sh                           # build TodoMVC into dist/ (or: ./build.sh react-comparison)
    python3 -m http.server -d dist 8080  # then open http://localhost:8080
    #+END_SRC
 

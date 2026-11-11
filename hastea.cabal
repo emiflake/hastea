@@ -105,3 +105,24 @@ executable hastea-todomvc
   -- Link as a WASI reactor exporting the entry point called by index.js.
   ghc-options:
     -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"
+
+executable hastea-react-comparison
+  import:         shared, wasm-only
+  hs-source-dirs: examples/ReactComparison
+  main-is:        Main.hs
+  other-modules:
+    ReactComparison.Accordion
+    ReactComparison.Counter
+    ReactComparison.Greeting
+    ReactComparison.Headings
+    ReactComparison.ProductTable
+    ReactComparison.Stopwatch
+    ReactComparison.Tasks
+
+  build-depends:
+    , base
+    , hastea
+
+  -- Link as a WASI reactor exporting the entry point called by index.js.
+  ghc-options:
+    -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"

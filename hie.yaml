@@ -8,3 +8,5 @@ cradle:
       component: "hastea:test:hastea-html-test"
     - path: "examples/todomvc"
       component: "exe:hastea-todomvc"
+    - path: "examples/ReactComparison"
+      component: "exe:hastea-react-comparison"

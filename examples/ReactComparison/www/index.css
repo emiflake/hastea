@@ -1,0 +1,55 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  line-height: 1.4;
+}
+
+.example {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0 1rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.example-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+}
+
+button,
+input {
+  font: inherit;
+  margin: 0.15rem 0.3rem 0.15rem 0;
+}
+
+label {
+  display: block;
+}
+
+.panel {
+  border: 1px solid #aaa;
+  padding: 0 0.75rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.section {
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  padding: 0 0.75rem;
+  margin: 0.5rem 0;
+}
+
+th,
+td {
+  text-align: left;
+  padding-right: 1rem;
+}
+
+ul {
+  padding-left: 0;
+  list-style: none;
+}
