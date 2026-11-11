@@ -1,4 +1,0 @@
--- Lets `cabal test` in this directory use a native GHC: hastea-html is pure
--- Haskell, unlike the wasm-only project in the parent directory.
-packages: .
-tests: True

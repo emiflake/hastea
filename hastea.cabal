@@ -24,12 +24,41 @@ common shared
   default-language: GHC2021
   ghc-options:      -Wall -Wcompat
 
-  -- Hastea relies on the JavaScript FFI of the wasm backend.
+-- Components that use the JavaScript FFI of the wasm backend.
+common wasm-only
   if !arch(wasm32)
     buildable: False
 
-library
+-- The view layer: HTML elements, attributes, events and decoders. Pure
+-- Haskell with no JavaScript, so it can be rendered and tested anywhere.
+-- Depend on it alone with `build-depends: hastea:hastea-html`.
+library hastea-html
   import:          shared
+  visibility:      public
+  hs-source-dirs:  hastea-html/src
+  exposed-modules:
+    Hastea.Html
+    Hastea.Html.Attributes
+    Hastea.Html.Decode
+    Hastea.Html.Events
+    Hastea.Html.Internal
+    Hastea.Html.Render
+
+  build-depends:   base >=4.16 && <5
+
+test-suite hastea-html-test
+  import:         shared
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: hastea-html/test
+  main-is:        Main.hs
+  other-modules:  Tables
+  build-depends:
+    , base
+    , hastea:hastea-html
+
+-- The runtime: renders views to the DOM and runs the update loop.
+library
+  import:          shared, wasm-only
   hs-source-dirs:  src
   exposed-modules:
     Hastea.App
@@ -37,8 +66,8 @@ library
     Hastea.Cmd
     Hastea.Decode
 
-  -- The view layer lives in hastea-html; re-export it so that depending on
-  -- hastea is enough to write an app.
+  -- Re-export the view layer so that depending on hastea is enough to write
+  -- an app.
   reexported-modules:
     , Hastea.Html
     , Hastea.Html.Attributes
@@ -54,10 +83,10 @@ library
   build-depends:
     , base              >=4.20 && <5
     , ghc-experimental
-    , hastea-html       ^>=0.1.0.0
+    , hastea:hastea-html
 
 executable hastea-todomvc
-  import:         shared
+  import:         shared, wasm-only
   hs-source-dirs: examples/todomvc
   main-is:        Main.hs
   other-modules:

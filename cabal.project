@@ -1,6 +1,4 @@
-packages:
-  .
-  hastea-html
+packages: .
 
 -- Hastea only builds for WebAssembly, so always use the wasm cross-compiler
 -- (from ghc-wasm-meta). This lets plain `cabal build` and HLS work without
@@ -10,6 +8,6 @@ with-hc-pkg: wasm32-wasi-ghc-pkg
 
 -- Test suites are wasm modules too; run them with wasmtime (also part of
 -- ghc-wasm-meta).
-package hastea-html
+package hastea
   tests: True
   test-wrapper: wasmtime
