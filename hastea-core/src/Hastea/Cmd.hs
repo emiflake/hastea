@@ -1,79 +1,87 @@
-{-# LANGUAGE LambdaCase #-}
+{- | Commands: effects for the runtime to carry out.
 
+'Hastea.App.runApp' keeps @update@ pure. When something has to happen
+outside the model (waiting, asking for the time, moving the focus), @update@
+returns a command describing it next to the new model. The runtime runs the
+command, and any message it produces comes back through @update@.
+
+Ready-made commands are in "Hastea.Time" and "Hastea.Dom".
+-}
 module Hastea.Cmd
   ( Cmd
   , none
-  , unsafeLiftCmd
-  , runCmd
-
-    -- * Helper Cmds
   , batch
+
+    -- * Making commands
+  , perform
+  , effect
+  , custom
   , log
+
+    -- * Running commands
+  , runCmd
   )
 where
 
-import Control.Applicative
 import Prelude hiding (log)
-
-{-\| TODO: rework Cmd system
-Idea: use a Monad that produces Messages, or Side effects and returns a new State
-Essentially, the state monad.
-@
-
-newtype Cmd state msg = Cmd { runCmd :: state -> (msg, state) }
-
-@
--}
 
 import Hastea.Internal.Foreign.Effects qualified as Effs
 
 
-newtype Cmd a
-  = Cmd (IO (Maybe a))
+{- | An effect that may send messages of type @msg@, now or later, any
+number of times.
+-}
+newtype Cmd msg
+  = Cmd ((msg -> IO ()) -> IO ())
 
 
+-- | Change the messages a command sends, to embed it in a larger application.
 instance Functor Cmd where
-  fmap f (Cmd action) =
-    Cmd $ (fmap . fmap) f action
+  fmap f (Cmd run) = Cmd (\dispatch -> run (dispatch . f))
 
 
-instance Applicative Cmd where
-  pure a = Cmd $ pure (Just a)
-  (Cmd fc) <*> (Cmd ac) =
-    Cmd $ do
-      f <- fc
-      a <- ac
-      pure $ liftA2 ($) f a
+-- | '<>' runs one command, then the other.
+instance Semigroup (Cmd msg) where
+  Cmd a <> Cmd b = Cmd (\dispatch -> a dispatch >> b dispatch)
 
 
-instance Monad Cmd where
-  return = pure
-  (Cmd ma) >>= afb = Cmd $ do
-    a' <- ma
-    case a' of
-      Nothing -> pure Nothing
-      Just a -> do
-        mb <- runCmd (afb a)
-        case mb of
-          Nothing -> pure Nothing
-          Just v -> pure (Just v)
+instance Monoid (Cmd msg) where
+  mempty = none
 
 
-unsafeLiftCmd :: IO a -> Cmd a
-unsafeLiftCmd = Cmd . fmap Just
+-- | Do nothing.
+none :: Cmd msg
+none = Cmd (\_ -> pure ())
 
 
-none :: Cmd a
-none = Cmd (pure Nothing)
+-- | Several commands as one. They are started in order.
+batch :: [Cmd msg] -> Cmd msg
+batch = mconcat
 
 
-batch :: [Cmd a] -> Cmd [a]
-batch = sequence
+-- | Run an action and send its result as a message.
+perform :: IO msg -> Cmd msg
+perform action = Cmd (action >>=)
 
 
-runCmd :: Cmd a -> IO (Maybe a)
-runCmd (Cmd a) = a
+-- | Run an action that produces no message.
+effect :: IO () -> Cmd msg
+effect action = Cmd (const action)
 
 
-log :: String -> Cmd a
-log = (>> none) . (unsafeLiftCmd . Effs.putStrLn)
+{- | A command with full control: it is given the function that sends a
+message to the application, and may call it whenever it likes, for example
+from a callback.
+-}
+custom :: ((msg -> IO ()) -> IO ()) -> Cmd msg
+custom = Cmd
+
+
+-- | Write a line to the browser console.
+log :: String -> Cmd msg
+log = effect . Effs.putStrLn
+
+
+-- | Carry out a command, sending its messages to the given function.
+runCmd :: (msg -> IO ()) -> Cmd msg -> IO ()
+runCmd dispatch (Cmd run) = run dispatch

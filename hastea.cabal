@@ -68,7 +68,10 @@ library
     Hastea.Async
     Hastea.Cmd
     Hastea.Decode
+    Hastea.Dom
     Hastea.Root
+    Hastea.Sub
+    Hastea.Time
 
   -- Re-export the view layer so that depending on hastea is enough to write
   -- an app.
@@ -83,9 +86,11 @@ library
     Hastea.Internal.Foreign.Effects
     Hastea.Internal.Foreign.FFI
     Hastea.Internal.Foreign.Types
+    Hastea.Internal.Sub
 
   build-depends:
     , base              >=4.20 && <5
+    , containers        >=0.6 && <0.9
     , ghc-experimental
     , hastea:hastea-html
 
@@ -113,10 +118,13 @@ executable hastea-react-comparison
   other-modules:
     ReactComparison.Accordion
     ReactComparison.Counter
+    ReactComparison.Focus
     ReactComparison.Greeting
     ReactComparison.Headings
     ReactComparison.ProductTable
+    ReactComparison.Quiz
     ReactComparison.Stopwatch
+    ReactComparison.StopwatchRoot
     ReactComparison.Tasks
 
   build-depends:

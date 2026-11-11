@@ -1,78 +1,78 @@
-{- | React: effects and refs, with state set from event handlers.
+{- | React: effects and refs.
 <https://react.dev/learn/referencing-values-with-refs>
 
-"Hastea.App" has no way yet to start a timer, so this example does not use
-it. It is written directly on "Hastea.Root", in the style of the React
-original: the messages of the view are 'IO' actions, which the root simply
-runs, state lives in an 'IORef', and setting it renders again.
+The React version starts an interval in an event handler and keeps its id
+in a ref, in order to clear it later. Here the model says whether the
+stopwatch is running, and 'subscriptions' says that a running stopwatch
+wants ticks. Starting and stopping the timer is left to the runtime.
 -}
 module ReactComparison.Stopwatch
-  ( run
+  ( Model
+  , Msg
+  , initial
+  , update
+  , subscriptions
+  , view
   )
 where
 
 import Prelude hiding (div)
 
-import Control.Monad (when)
-import Data.IORef
 import Numeric (showFFloat)
 
-import Hastea.Async (setTimeout)
+import Hastea.Cmd (Cmd)
+import Hastea.Cmd qualified as Cmd
 import Hastea.Html
 import Hastea.Html.Events (onClick)
-import Hastea.Root (mount, render)
+import Hastea.Sub (Sub)
+import Hastea.Sub qualified as Sub
+import Hastea.Time qualified as Time
 
 
-foreign import javascript unsafe "Date.now()" dateNow :: IO Double
-
-
-data State = State
+data Model = Model
   { startTime :: Maybe Double
   , now :: Maybe Double
+  , running :: Bool
   }
 
 
--- | Show a stopwatch in the element with id @stopwatch-node@.
-run :: IO ()
-run = do
-  -- An event handler is an action; to dispatch it is to run it.
-  root <- mount "stopwatch-node" id
-  state <- newIORef State{startTime = Nothing, now = Nothing}
-  -- Like a ref, this is not shown, so changing it does not render. It
-  -- counts how often the timer was started or stopped.
-  timer <- newIORef (0 :: Int)
-
-  let setState change = do
-        modifyIORef' state change
-        readIORef state >>= render root . view
-
-      handleStart = do
-        timestamp <- dateNow
-        setState (const State{startTime = Just timestamp, now = Just timestamp})
-        modifyIORef' timer (+ 1)
-        readIORef timer >>= tick
-
-      handleStop = modifyIORef' timer (+ 1)
-
-      -- Keeps going until the timer is started or stopped again.
-      tick started = do
-        current <- readIORef timer
-        when (current == started) $ do
-          timestamp <- dateNow
-          setState (\st -> st{now = Just timestamp})
-          setTimeout (tick started) 10
-
-      view st =
-        div
-          []
-          [ h1 [] [text ("Time passed: " <> showFFloat (Just 3) (secondsPassed st) "")]
-          , button [onClick handleStart] [text "Start"]
-          , button [onClick handleStop] [text "Stop"]
-          ]
-
-  setState id
+data Msg
+  = StartPressed
+  | Started Double
+  | StopPressed
+  | Ticked Double
 
 
-secondsPassed :: State -> Double
-secondsPassed State{startTime = Just start, now = Just current} = (current - start) / 1000
+initial :: Model
+initial = Model{startTime = Nothing, now = Nothing, running = False}
+
+
+update :: Msg -> Model -> (Model, Cmd Msg)
+update msg model = case msg of
+  -- Reading the clock is an effect, so ask for the time and wait for the answer.
+  StartPressed -> (model, Time.now Started)
+  Started timestamp ->
+    (Model{startTime = Just timestamp, now = Just timestamp, running = True}, Cmd.none)
+  StopPressed -> (model{running = False}, Cmd.none)
+  Ticked timestamp -> (model{now = Just timestamp}, Cmd.none)
+
+
+subscriptions :: Model -> Sub Msg
+subscriptions model
+  | running model = Time.every 10 Ticked
+  | otherwise = Sub.none
+
+
+view :: Model -> Html Msg
+view model =
+  div
+    []
+    [ h1 [] [text ("Time passed: " <> showFFloat (Just 3) (secondsPassed model) "")]
+    , button [onClick StartPressed] [text "Start"]
+    , button [onClick StopPressed] [text "Stop"]
+    ]
+
+
+secondsPassed :: Model -> Double
+secondsPassed Model{startTime = Just start, now = Just current} = (current - start) / 1000
 secondsPassed _ = 0
