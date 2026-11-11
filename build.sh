@@ -6,11 +6,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-cabal build exe:hastea-todomvc
+# wasm32-wasi-cabal comes with ghc-wasm-meta. Set CABAL=cabal to use your own.
+cabal=${CABAL:-wasm32-wasi-cabal}
+
+"$cabal" build exe:hastea-todomvc
 
 dist=dist
 mkdir -p "$dist"
-cp "$(cabal list-bin exe:hastea-todomvc)" "$dist/hastea.wasm"
+bin=$("$cabal" list-bin exe:hastea-todomvc)
+# Older cabal versions leave the .wasm extension off.
+[ -f "$bin" ] || bin="$bin.wasm"
+cp "$bin" "$dist/hastea.wasm"
 "$(wasm32-wasi-ghc --print-libdir)/post-link.mjs" -i "$dist/hastea.wasm" -o "$dist/ghc_wasm_jsffi.js"
 cp examples/todomvc/www/* "$dist/"
 
