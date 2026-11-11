@@ -27,7 +27,7 @@ where
 
 import Data.Bifunctor (second)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
-import Data.List (mapAccumL, nub, (\\))
+import Data.List (mapAccumL)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -256,7 +256,7 @@ go send path tree store = case tree of
           , store = emptyStore{children = Map.fromList [(key, result.store) | (key, result) <- results, not (isEmpty result.store)]}
           , effects = unmountHere store <> foldMap unmountAll gone <> foldMap (\(_, result) -> result.effects) results
           , warnings =
-              [duplicateKey tag key | key <- nub (keys \\ nub keys)]
+              [duplicateKey tag key | (key, count) <- Map.toList (Map.fromListWith (+) [(key, 1 :: Int) | key <- keys]), count > 1]
                 <> concatMap (\(_, result) -> result.warnings) results
           }
 
