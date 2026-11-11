@@ -3,7 +3,7 @@
 
 This lists the gaps between Hastea and React that are in our power to close. It leaves out what is not: the size of React's ecosystem, its JavaScript-native toolchain, and the size of GHC's WebAssembly runtime.
 
-Items are grouped by how much they hurt a real application. The performance items come from reading the code; see [[file:benchmark/README.md][the benchmark]] for measurements.
+Items are grouped by how much they hurt a real application. The performance items come from reading the code and from [[file:benchmark/README.md][the benchmark]]; nothing has been profiled.
 
 * Things you hit in the first real application
   - [X] *Acting when a component appears or disappears.* ~onMount~ and ~onUnmount~.
@@ -23,10 +23,12 @@ Items are grouped by how much they hurt a real application. The performance item
   - [ ] *Error boundaries per component*, so that one broken part does not take the page with it.
 
 * Performance
-  - [ ] *A benchmark*, before anything else here.
+  - [X] *A benchmark*: [[file:benchmark/README.md][benchmark/]] measures a table of rows against React. Hastea is 4 to 12 times slower.
   - [ ] *Strings are linked lists*, converted character by character at the JavaScript boundary.
-  - [ ] *Reordering a list is simple, not minimal.* Each child costs one DOM call to place, and several lookups are quadratic in the number of children or attributes.
+  - [ ] *Adding, removing and moving children is quadratic.* Carrying out the patch looks children up by position in a linked list, and each child costs one DOM call to place. The benchmark shows it: 10,000 rows take 28 times as long as 1,000.
+  - [ ] *An unchanged list is still walked in full.* Selecting one row of 1,000 takes 58 ms in the benchmark, though only two rows change.
   - [ ] *Every render expands the whole tree again* before diffing, apart from ~lazy~ subtrees.
+  - [ ] *Download size.* The benchmark page is a 2.1 MB wasm module; nothing has been done yet to shrink it (optimisation flags, ~wasm-opt~, compression).
   - [ ] *Rendering is all-or-nothing per frame.* Long renders cannot be interrupted or given a priority.
 
 * Developer experience

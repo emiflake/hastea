@@ -3,6 +3,7 @@
 #
 #   ./build.sh                    # TodoMVC
 #   ./build.sh react-comparison   # examples from the React documentation
+#   ./build.sh benchmark          # the page that benchmark/run.cjs measures
 #
 # cabal produces the wasm module; GHC's post-linker then generates the
 # JavaScript FFI glue that index.js imports.
@@ -12,7 +13,8 @@ cd "$(dirname "$0")"
 case "${1:-todomvc}" in
   todomvc) exe=hastea-todomvc www=examples/todomvc/www ;;
   react-comparison) exe=hastea-react-comparison www=examples/ReactComparison/www ;;
-  *) echo "Unknown example: $1 (expected todomvc or react-comparison)" >&2; exit 1 ;;
+  benchmark) exe=hastea-benchmark www=benchmark/www ;;
+  *) echo "Unknown example: $1 (expected todomvc, react-comparison or benchmark)" >&2; exit 1 ;;
 esac
 
 # wasm32-wasi-cabal comes with ghc-wasm-meta. Set CABAL=cabal to use your own.

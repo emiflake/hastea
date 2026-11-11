@@ -4,3 +4,4 @@ dist-newstyle
 *.hi
 *.o
 *.~undo-tree~
+node_modules

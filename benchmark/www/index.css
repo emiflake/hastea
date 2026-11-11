@@ -1,0 +1,31 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 1rem;
+}
+
+button {
+  font: inherit;
+  margin: 0 0.3rem 0.3rem 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td {
+  border-top: 1px solid #ddd;
+  padding: 0.3rem 0.5rem;
+}
+
+td.id {
+  width: 5rem;
+}
+
+tr.danger {
+  background: #f2dede;
+}
+
+a {
+  cursor: pointer;
+}

@@ -14,3 +14,5 @@ cradle:
       component: "exe:hastea-todomvc"
     - path: "examples/ReactComparison"
       component: "exe:hastea-react-comparison"
+    - path: "benchmark"
+      component: "exe:hastea-benchmark"

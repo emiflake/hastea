@@ -1,0 +1,10 @@
+{
+  "name": "hastea-benchmark",
+  "private": true,
+  "description": "What run.cjs needs besides Playwright: React to compare with, and the WASI shim that the Hastea page loads.",
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "0.4.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

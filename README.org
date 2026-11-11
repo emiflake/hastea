@@ -15,6 +15,7 @@
   | ~hastea-core/~      | The ~hastea~ library: the runtime that puts views on the page (~Hastea.App~, ~Hastea.Root~, ~Hastea.Time~, ...)   |
   | ~examples/todomvc/~ | The TodoMVC example executable, with its static files in ~www/~                                              |
   | ~examples/ReactComparison/~ | Examples from the React documentation rewritten with Hastea, and a table of the differences ([[file:examples/ReactComparison/README.md][README]]) |
+  | ~benchmark/~        | A table of rows written with Hastea and with React, and a script that measures both ([[file:benchmark/README.md][results]]) |
   | ~build.sh~          | Builds the example into ~dist/~                                                                              |
 
 * Writing views
@@ -154,5 +155,4 @@
   - Records use ~OverloadedRecordDot~ (~model.name~), with ~NoFieldSelectors~ and ~DuplicateRecordFields~, all enabled in ~hastea.cabal~. Fields are therefore not functions, and can share names with each other and with HTML elements.
 
 * TODOs
-  - Benchmark
   See [[file:ROADMAP.org][ROADMAP.org]].
