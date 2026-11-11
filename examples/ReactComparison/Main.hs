@@ -6,12 +6,10 @@ one takes a single line, as in React.
 -}
 module Main where
 
-import Data.Void (Void, absurd)
-
+import Hastea.App (runView)
 import Hastea.Component (use)
 import Hastea.Html
 import Hastea.Html.Attributes (className)
-import Hastea.Root (mount, render)
 
 import ReactComparison.Accordion (accordion)
 import ReactComparison.Counter (counter)
@@ -23,6 +21,12 @@ import ReactComparison.Quiz (quiz)
 import ReactComparison.Stopwatch (stopwatch)
 import ReactComparison.StopwatchRoot qualified as StopwatchRoot
 import ReactComparison.Tasks (taskApp)
+
+
+main :: IO ()
+main = do
+  runView page
+  StopwatchRoot.run
 
 
 page :: Html msg
@@ -42,19 +46,10 @@ page =
     ]
 
 
+-- | A titled box around one example.
 example :: String -> [Html msg] -> Html msg
 example name content =
   article [className "example"] (h2 [className "example-title"] [text name] : content)
-
-
-main :: IO ()
-main = do
-  -- The page has no state of its own and sends no messages, so there is
-  -- nothing for an application loop to do: show it and let the components
-  -- look after themselves.
-  root <- mount "main-node" (absurd :: Void -> IO ())
-  render root page
-  StopwatchRoot.run
 
 
 -- The wasm module is linked as a WASI reactor, so there is no implicit entry

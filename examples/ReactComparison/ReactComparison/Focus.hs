@@ -17,26 +17,24 @@ import Hastea.Dom qualified as Dom
 import Hastea.Html
 import Hastea.Html.Attributes (id_)
 import Hastea.Html.Events (onClick)
-import Hastea.Sub qualified as Sub
 
 
 data Msg = FocusPressed
 
 
+-- | There is nothing to remember, so the state is empty.
 focusForm :: Component () () Msg out
-focusForm =
-  Component
-    { initial = \() -> ()
-    , update = \FocusPressed () -> ((), [Run (Dom.focus inputId)])
-    , view = \() () ->
-        div
-          []
-          [ input [id_ inputId]
-          , button [onClick FocusPressed] [text "Focus the input"]
-          ]
-    , subscriptions = const Sub.none
-    }
+focusForm = component initial update view
+ where
+  initial () = ()
 
+  update FocusPressed () = ((), [Run (Dom.focus inputId)])
 
-inputId :: String
-inputId = "focus-example-input"
+  view () () =
+    div
+      []
+      [ input [id_ inputId]
+      , button [onClick FocusPressed] [text "Focus the input"]
+      ]
+
+  inputId = "focus-example-input"

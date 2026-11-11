@@ -18,10 +18,9 @@ import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (value)
 import Hastea.Html.Events (onInput)
-import Hastea.Sub qualified as Sub
 
 
-data Model = Model
+data Form = Form
   { name :: String
   , address :: String
   }
@@ -32,30 +31,30 @@ data Msg
   | AddressChanged String
 
 
-greetingForm :: Component () Model Msg out
-greetingForm =
-  Component
-    { initial = \() -> Model{name = "", address = ""}
-    , update = \msg model -> case msg of
-        NameChanged newName -> (model{name = newName}, [])
-        AddressChanged newAddress -> (model{address = newAddress}, [])
-    , view = \() model ->
-        div
-          []
-          [ label [] [text "Name: ", input [value model.name, onInput NameChanged]]
-          , label [] [text "Address: ", input [value model.address, onInput AddressChanged]]
-          , -- Typing an address leaves the name untouched, so the greeting
-            -- is neither computed nor compared with the page.
-            lazy greeting model.name
-          ]
-    , subscriptions = const Sub.none
-    }
+greetingForm :: Component () Form Msg out
+greetingForm = component initial update view
+ where
+  initial () = Form{name = "", address = ""}
+
+  update msg fields = case msg of
+    NameChanged newName -> (fields{name = newName}, [])
+    AddressChanged newAddress -> (fields{address = newAddress}, [])
+
+  view () fields =
+    div
+      []
+      [ label [] [text "Name: ", input [value fields.name, onInput NameChanged]]
+      , label [] [text "Address: ", input [value fields.address, onInput AddressChanged]]
+      , -- Typing an address leaves the name untouched, so the greeting is
+        -- neither computed nor compared with the page.
+        lazy greeting fields.name
+      ]
 
 
 {- | Like the React example, this reports when it is rendered (in the
 browser console), to show that it is not when only the address changes.
 -}
 greeting :: String -> Html msg
-greeting who =
+greeting name =
   trace "Greeting was rendered" $
-    h3 [] [text ("Hello" <> (if null who then "" else ", " <> who) <> "!")]
+    h3 [] [text (if null name then "Hello!" else "Hello, " <> name <> "!")]

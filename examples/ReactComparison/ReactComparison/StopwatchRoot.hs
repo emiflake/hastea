@@ -2,10 +2,10 @@
 <https://react.dev/learn/referencing-values-with-refs>
 
 "ReactComparison.Stopwatch" is this example written the usual way. This
-version shows what is underneath "Hastea.App": a "Hastea.Root" only shows
-trees and hands back their messages, whatever they are. Here the messages
-are 'IO' actions, which the root simply runs, state lives in an 'IORef', and
-setting it renders again, as in the React original.
+version shows what is underneath: a "Hastea.Root" only shows trees and
+hands back their messages, whatever they are. Here the messages are 'IO'
+actions, which the root simply runs, state lives in an 'IORef', and setting
+it renders again, as in the React original.
 -}
 module ReactComparison.StopwatchRoot
   ( run
@@ -27,9 +27,10 @@ import Hastea.Root (mount, render)
 foreign import javascript unsafe "Date.now()" dateNow :: IO Double
 
 
-data State = State
-  { startTime :: Maybe Double
-  , now :: Maybe Double
+-- | Times are in milliseconds.
+data Stopwatch = Stopwatch
+  { startTime :: Double
+  , now :: Double
   }
 
 
@@ -38,7 +39,7 @@ run :: IO ()
 run = do
   -- An event handler is an action; to dispatch it is to run it.
   root <- mount "stopwatch-root-node" id
-  state <- newIORef State{startTime = Nothing, now = Nothing}
+  state <- newIORef Stopwatch{startTime = 0, now = 0}
   -- Like a ref, this is not shown, so changing it does not render. It
   -- counts how often the timer was started or stopped.
   timer <- newIORef (0 :: Int)
@@ -48,8 +49,8 @@ run = do
         readIORef state >>= render root . view
 
       handleStart = do
-        timestamp <- dateNow
-        setState (const State{startTime = Just timestamp, now = Just timestamp})
+        clock <- dateNow
+        setState (const Stopwatch{startTime = clock, now = clock})
         modifyIORef' timer (+ 1)
         readIORef timer >>= tick
 
@@ -59,14 +60,14 @@ run = do
       tick started = do
         current <- readIORef timer
         when (current == started) $ do
-          timestamp <- dateNow
-          setState (\st -> st{now = Just timestamp})
+          clock <- dateNow
+          setState (\watch -> watch{now = clock})
           setTimeout (tick started) 10
 
-      view st =
+      view watch =
         div
           []
-          [ h1 [] [text ("Time passed: " <> showFFloat (Just 3) (secondsPassed st) "")]
+          [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
           , button [onClick handleStart] [text "Start"]
           , button [onClick handleStop] [text "Stop"]
           ]
@@ -74,7 +75,6 @@ run = do
   setState id
 
 
-secondsPassed :: State -> Double
-secondsPassed state = case (state.startTime, state.now) of
-  (Just start, Just current) -> (current - start) / 1000
-  _ -> 0
+-- | Milliseconds as seconds, to three decimal places.
+seconds :: Double -> String
+seconds milliseconds = showFFloat (Just 3) (milliseconds / 1000) ""

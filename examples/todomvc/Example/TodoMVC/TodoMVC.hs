@@ -1,16 +1,22 @@
+{- | TodoMVC as one model, one update function and one view.
+
+Everything the page shows is computed from 'Model', and the model only
+changes in 'step'.
+-}
 module Example.TodoMVC.TodoMVC
   ( runTodoMVC
   )
 where
 
-import Prelude hiding (div, init, span)
+import Prelude hiding (div, span)
 
-import Hastea.App
+import Hastea.App (runApp)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
 import Hastea.Html
 import Hastea.Html.Attributes
   ( checked
+  , classList
   , className
   , for
   , href
@@ -20,144 +26,60 @@ import Hastea.Html.Attributes
   , type_
   , value
   )
-import Hastea.Html.Events
+import Hastea.Html.Events (onClick, onInput, onKeyDown)
 
-import Example.TodoMVC.Todos (Todos)
+import Example.TodoMVC.Todos (Filter (..), Todo, TodoId, Todos)
 import Example.TodoMVC.Todos qualified as Todos
 
 
-data Model
-  = Model
+runTodoMVC :: IO ()
+runTodoMVC = runApp update initial view
+
+
+-- MODEL
+
+data Model = Model
   { todos :: Todos
   , entry :: String
-  , filter :: Todos.Filter
+  -- ^ The text in the "What needs to be done?" field.
+  , filter :: Filter
   }
-  deriving (Show)
 
 
-addTodo :: Model -> Model
-addTodo model =
-  model
-    { todos = Todos.add model.entry model.todos
-    , entry = ""
-    }
+initial :: Model
+initial = Model{todos = Todos.empty, entry = "", filter = All}
 
 
-init :: Model
-init =
-  Model
-    { todos = Todos.empty
-    , entry = ""
-    , filter = Todos.All
-    }
+-- UPDATE
 
-
+-- | What the user can do.
 data Msg
-  = NoOp
-  | TodosUpdate (Todos -> Todos)
-  | TodoEntryChange String
-  | TodoEntryKeypress String
-  | SetFilter Todos.Filter
-  | ClearCompleted
-  | ToggleAll
+  = EntryChanged String
+  | EntryKeyPressed String
+  | Toggled TodoId
+  | AllToggled
+  | FilterSelected Filter
+  | CompletedCleared
 
 
--- Will get rid of this eventually.
-instance Show Msg where
-  show msg =
-    case msg of
-      NoOp -> "NoOp"
-      TodosUpdate _ -> "TodosUpdate { internal }"
-      TodoEntryChange entry -> "TodoEntryChange " <> show entry
-      TodoEntryKeypress kp -> "TodoEntryKeypress " <> show kp
-      SetFilter newFilter -> "SetFilter " <> show newFilter
-      ToggleAll -> "ToggleAll"
-      ClearCompleted -> "ClearCompleted"
-
-
+-- | Nothing here has effects, so there is never a command to run.
 update :: Msg -> Model -> (Model, Cmd Msg)
-update msg model =
-  case msg of
-    TodosUpdate updateTodos ->
-      (model{todos = updateTodos model.todos}, Cmd.none)
-    TodoEntryChange newEntry ->
-      (model{entry = newEntry}, Cmd.none)
-    TodoEntryKeypress "Enter"
-      | not (null model.entry) ->
-          (addTodo model, Cmd.none)
-    SetFilter newFilter ->
-      (model{filter = newFilter}, Cmd.none)
-    ClearCompleted ->
-      (model{todos = Todos.clearCompleted model.todos}, Cmd.none)
-    ToggleAll ->
-      (model{todos = Todos.toggleAll model.todos}, Cmd.none)
-    _ ->
-      (model, Cmd.none)
+update msg model = (step msg model, Cmd.none)
 
 
-viewFilter :: Todos.Filter -> Todos.Filter -> Html Msg
-viewFilter target current =
-  let
-    selected = target == current
-   in
-    li
-      []
-      [ a
-          [ if selected then className "selected" else className ""
-          , onClick (SetFilter target)
-          ]
-          [text . show $ target]
-      ]
+step :: Msg -> Model -> Model
+step msg model = case msg of
+  EntryChanged newEntry -> model{entry = newEntry}
+  EntryKeyPressed "Enter"
+    | not (null model.entry) -> model{todos = Todos.add model.entry model.todos, entry = ""}
+  EntryKeyPressed _ -> model
+  Toggled todoId -> model{todos = Todos.toggle todoId model.todos}
+  AllToggled -> model{todos = Todos.toggleAll model.todos}
+  FilterSelected newFilter -> model{filter = newFilter}
+  CompletedCleared -> model{todos = Todos.clearCompleted model.todos}
 
 
-viewFilters :: Model -> Html Msg
-viewFilters model =
-  ul
-    [className "filters"]
-    [ viewFilter Todos.All model.filter
-    , viewFilter Todos.Active model.filter
-    , viewFilter Todos.Completed model.filter
-    ]
-
-
-viewClearCompleted :: Model -> [Html Msg]
-viewClearCompleted model =
-  if Todos.anyCompleted model.todos
-    then
-      [ button
-          [ className "clear-completed"
-          , onClick ClearCompleted
-          ]
-          [text "Clear completed"]
-      ]
-    else
-      []
-
-
-viewItemCount :: Int -> Html msg
-viewItemCount count =
-  let countLabel =
-        case count of
-          1 -> show count <> " item left"
-          _ -> show count <> " items left"
-   in span [className "todo-count"] [text countLabel]
-
-
-viewFooter :: Model -> [Html Msg]
-viewFooter model =
-  if not (Todos.isEmpty model.todos)
-    then
-      [ footer
-          [className "footer"]
-          ( [ viewItemCount (Todos.count model.todos)
-            , viewFilters model
-            ]
-              <> viewClearCompleted model
-          )
-      ]
-    else
-      []
-
+-- VIEW
 
 view :: Model -> Html Msg
 view model =
@@ -165,52 +87,125 @@ view model =
     [className "todomvc-wrapper"]
     [ section
         [className "todoapp"]
-        ( [ header
-              [className "header"]
-              [ h1 [] [text "Todos"]
-              , input
-                  [ className "new-todo"
-                  , placeholder "What needs to be done?"
-                  , onInput TodoEntryChange
-                  , onKeypress TodoEntryKeypress
-                  , value model.entry
-                  ]
-              ]
-          , section
-              [className "main", styles [("display", "block")]]
-              [ input
-                  [ id_ "toggle-all"
-                  , className "toggle-all"
-                  , type_ "checkbox"
-                  , onClick ToggleAll
-                  , checked (Todos.allCompleted model.todos)
-                  ]
-              , label [for "toggle-all"] []
-              , -- Typing in the entry field changes neither the filter nor
-                -- the todos, so the list is then skipped entirely.
-                lazy3 Todos.viewTodos model.filter TodosUpdate model.todos
-              ]
-          ]
-            <> (viewFooter model)
+        ( [viewHeader model.entry, viewMain model]
+            <> [viewFooter model | not (Todos.isEmpty model.todos)]
         )
-    , footer
-        [className "info"]
-        [ p [] [text "Double-click to edit a todo"]
-        , p
-            []
-            [ span [] [text "Created with "]
-            , a [href "https://github.com/emiflake/hastea"] [text "Hastea"]
-            , span [] [text " and "]
-            , a
-                [href "https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html"]
-                [text "GHC's WebAssembly backend"]
-            ]
+    , viewInfo
+    ]
+
+
+viewHeader :: String -> Html Msg
+viewHeader entry =
+  header
+    [className "header"]
+    [ h1 [] [text "Todos"]
+    , input
+        [ className "new-todo"
+        , placeholder "What needs to be done?"
+        , value entry
+        , onInput EntryChanged
+        , onKeyDown EntryKeyPressed
         ]
     ]
 
 
-runTodoMVC :: IO ()
-runTodoMVC =
-  do
-    putStrLn "-- TODO: MVC"
-    runApp update init view
+viewMain :: Model -> Html Msg
+viewMain model =
+  section
+    [className "main", styles [("display", "block")]]
+    [ input
+        [ id_ "toggle-all"
+        , className "toggle-all"
+        , type_ "checkbox"
+        , checked (Todos.allCompleted model.todos)
+        , onClick AllToggled
+        ]
+    , label [for "toggle-all"] []
+    , -- Typing in the entry field changes neither the filter nor the todos,
+      -- so the list is then skipped entirely.
+      lazy2 viewTodos model.filter model.todos
+    ]
+
+
+viewTodos :: Filter -> Todos -> Html Msg
+viewTodos current todos =
+  ul
+    [className "todo-list"]
+    [ -- The key ties each todo to its element, whatever the filter shows.
+      keyed (show todoId) (viewTodo todoId todo)
+    | (todoId, todo) <- Todos.visible current todos
+    ]
+
+
+viewTodo :: TodoId -> Todo -> Html Msg
+viewTodo todoId todo =
+  li
+    [classList [("completed", todo.completed)]]
+    [ div
+        [className "view"]
+        [ input
+            [ className "toggle"
+            , type_ "checkbox"
+            , checked todo.completed
+            , onClick (Toggled todoId)
+            ]
+        , label [] [text todo.label]
+        ]
+    ]
+
+
+viewFooter :: Model -> Html Msg
+viewFooter model =
+  footer
+    [className "footer"]
+    ( [viewItemCount (Todos.remaining model.todos), viewFilters model.filter]
+        <> [viewClearCompleted | Todos.anyCompleted model.todos]
+    )
+
+
+viewItemCount :: Int -> Html msg
+viewItemCount count =
+  span [className "todo-count"] [text (show count <> (if count == 1 then " item left" else " items left"))]
+
+
+viewFilters :: Filter -> Html Msg
+viewFilters current =
+  ul [className "filters"] [viewFilter current choice | choice <- [All, Active, Completed]]
+
+
+viewFilter :: Filter -> Filter -> Html Msg
+viewFilter current choice =
+  li
+    []
+    [ a
+        [classList [("selected", choice == current)], onClick (FilterSelected choice)]
+        [text (filterName choice)]
+    ]
+
+
+filterName :: Filter -> String
+filterName All = "All"
+filterName Active = "Active"
+filterName Completed = "Completed"
+
+
+viewClearCompleted :: Html Msg
+viewClearCompleted =
+  button [className "clear-completed", onClick CompletedCleared] [text "Clear completed"]
+
+
+viewInfo :: Html msg
+viewInfo =
+  footer
+    [className "info"]
+    [ p [] [text "Double-click to edit a todo"]
+    , p
+        []
+        [ text "Created with "
+        , a [href "https://github.com/emiflake/hastea"] [text "Hastea"]
+        , text " and "
+        , a
+            [href "https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html"]
+            [text "GHC's WebAssembly backend"]
+        ]
+    ]

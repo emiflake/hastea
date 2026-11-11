@@ -2,9 +2,9 @@
 <https://react.dev/learn/passing-data-deeply-with-context>
 
 In React a @Heading@ learns its level from the nearest @Section@ through a
-context, because passing it down as a prop through every component in
-between is tedious. Here a section passes the level to its children as an
-ordinary argument.
+context, so that the level does not have to be passed down by hand. Here
+the parts of the page are functions of the level they are at ('Leveled'),
+and 'section' calls its children with a level one deeper.
 -}
 module ReactComparison.Headings
   ( view
@@ -18,27 +18,35 @@ import Hastea.Html.Attributes (className)
 
 view :: Html msg
 view =
-  section 0 $ \level ->
-    [ heading level "Title"
-    , section level $ \level2 ->
-        [ heading level2 "Heading"
-        , heading level2 "Heading"
-        , section level2 $ \level3 ->
-            [ heading level3 "Sub-heading"
-            , heading level3 "Sub-heading"
-            ]
-        ]
-    ]
+  page 0
+ where
+  page =
+    section
+      [ heading "Title"
+      , section
+          [ heading "Heading"
+          , heading "Heading"
+          , section
+              [ heading "Sub-heading"
+              , heading "Sub-heading"
+              ]
+          ]
+      ]
 
 
--- | A section one level deeper than its surroundings.
-section :: Int -> (Int -> [Html msg]) -> Html msg
-section level children =
-  Html.section [className "section"] (children (level + 1))
+-- | A piece of the page that depends on how deeply it is nested.
+type Leveled msg = Int -> Html msg
 
 
-heading :: Int -> String -> Html msg
-heading level content = tag [] [text content]
+-- | Puts its children one level deeper than itself.
+section :: [Leveled msg] -> Leveled msg
+section children level =
+  Html.section [className "section"] [child (level + 1) | child <- children]
+
+
+-- | A heading of the size that fits its level.
+heading :: String -> Leveled msg
+heading content level = tag [] [text content]
  where
   tag = case level of
     1 -> h1

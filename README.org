@@ -56,23 +56,21 @@
   ~Hastea.App.runApp~ is the Elm-style loop (model, update, view). It is a thin layer over ~Hastea.Root~ (~mount~ and ~render~), which shows trees, keeps the state of the components in them, and reports messages. It can serve as the base for other architectures.
 
 * Components
-  A view can contain /components/ (~Hastea.Component~, in the ~hastea-component~ sublibrary): parts that keep their own state, as in React. A component is a record of pure functions, and ~use~ places it in a view. Whatever shows the view keeps the state, one per place the component is used in.
+  A view can contain /components/ (~Hastea.Component~, in the ~hastea-component~ sublibrary): parts that keep their own state, as in React. A component is made of pure functions, and ~use~ places it in a view. Whatever shows the view keeps the state, one per place the component is used in.
 
   #+BEGIN_SRC haskell
   counter :: Component () Int Msg out
-  counter =
-    Component
-      { initial = \() -> 0
-      , update = \Pressed count -> (count + 1, [])
-      , view = \() count -> button [onClick Pressed] [text (show count)]
-      , subscriptions = const Sub.none
-      }
+  counter = component initial update view
+   where
+    initial () = 0
+    update Pressed count = (count + 1, [])
+    view () count = button [onClick Pressed] [text (show count)]
 
   page :: Html msg
   page = div [] [use counter (), use counter ()] -- two counters, counting separately
   #+END_SRC
 
-  The first type parameter is what the component is given by its surroundings (its props) and the last what it reports back: ~update~ returns ~[Emit value]~, and the user turns that into one of its own messages with ~<$>~. ~update~ can also ask for a command with ~[Run command]~. In a list, ~keyed~ makes the state follow the item.
+  The first type parameter is what the component is given by its surroundings (its props) and the last what it reports back: ~update~ returns ~[Emit value]~, and the user turns that into one of its own messages with ~<$>~. ~update~ can also ask for a command with ~[Run command]~, and a component can have subscriptions: ~(component initial update view){subscriptions}~. In a list, ~keyed~ makes the state follow the item.
 
   Components and ~runApp~ mix freely: use one model for what the whole application shares and components for what is local. See [[file:examples/ReactComparison/README.md][examples/ReactComparison]] for a page built only from components, and ~examples/todomvc~ for one built only on a model.
 
@@ -99,7 +97,7 @@
   | ~Hastea.Sub~  | ~none~, ~batch~, ~custom~                                                   |
   | ~Hastea.Time~ | ~now~, ~after~ (commands) and ~every~ (subscription)                        |
   | ~Hastea.Dom~  | ~focus~, ~blur~                                                             |
-  | ~Hastea.App~  | ~runApp~ for the simple case; ~App~, ~app~ and ~run~ for the rest           |
+  | ~Hastea.App~  | ~runApp~ for the simple case; ~App~, ~app~ and ~run~ for the rest; ~runView~ for a page of components |
 
 * Building
 ** Get the wasm toolchain

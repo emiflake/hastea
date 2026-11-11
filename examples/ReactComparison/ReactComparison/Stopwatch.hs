@@ -2,7 +2,7 @@
 <https://react.dev/learn/referencing-values-with-refs>
 
 The React version starts an interval in an event handler and keeps its id
-in a ref, in order to clear it later. Here the model says whether the
+in a ref, in order to clear it later. Here the state says whether the
 stopwatch is running, and @subscriptions@ says that a running stopwatch
 wants ticks. Starting and stopping the timer is left to the runtime.
 -}
@@ -22,9 +22,10 @@ import Hastea.Sub qualified as Sub
 import Hastea.Time qualified as Time
 
 
-data Model = Model
-  { startTime :: Maybe Double
-  , now :: Maybe Double
+-- | Times are in milliseconds.
+data Stopwatch = Stopwatch
+  { startTime :: Double
+  , now :: Double
   , running :: Bool
   }
 
@@ -36,30 +37,31 @@ data Msg
   | Ticked Double
 
 
-stopwatch :: Component () Model Msg out
-stopwatch =
-  Component
-    { initial = \() -> Model{startTime = Nothing, now = Nothing, running = False}
-    , update = \msg model -> case msg of
-        -- Reading the clock is an effect: ask for the time and wait for the answer.
-        StartPressed -> (model, [Run (Time.now Started)])
-        Started timestamp ->
-          (Model{startTime = Just timestamp, now = Just timestamp, running = True}, [])
-        StopPressed -> (model{running = False}, [])
-        Ticked timestamp -> (model{now = Just timestamp}, [])
-    , view = \() model ->
-        div
-          []
-          [ h1 [] [text ("Time passed: " <> showFFloat (Just 3) (secondsPassed model) "")]
-          , button [onClick StartPressed] [text "Start"]
-          , button [onClick StopPressed] [text "Stop"]
-          ]
-    , subscriptions = \model ->
-        if model.running then Time.every 10 Ticked else Sub.none
-    }
+stopwatch :: Component () Stopwatch Msg out
+stopwatch = (component initial update view){subscriptions}
+ where
+  initial () = Stopwatch{startTime = 0, now = 0, running = False}
+
+  update msg watch = case msg of
+    -- Reading the clock is an effect: ask for the time and wait for the answer.
+    StartPressed -> (watch, [Run (Time.now Started)])
+    Started clock -> (Stopwatch{startTime = clock, now = clock, running = True}, [])
+    StopPressed -> (watch{running = False}, [])
+    Ticked clock -> (watch{now = clock}, [])
+
+  subscriptions watch
+    | watch.running = Time.every 10 Ticked
+    | otherwise = Sub.none
+
+  view () watch =
+    div
+      []
+      [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
+      , button [onClick StartPressed] [text "Start"]
+      , button [onClick StopPressed] [text "Stop"]
+      ]
 
 
-secondsPassed :: Model -> Double
-secondsPassed model = case (model.startTime, model.now) of
-  (Just start, Just current) -> (current - start) / 1000
-  _ -> 0
+-- | Milliseconds as seconds, to three decimal places.
+seconds :: Double -> String
+seconds milliseconds = showFFloat (Just 3) (milliseconds / 1000) ""

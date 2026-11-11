@@ -4,7 +4,7 @@
 The React handler is an @async@ function that sets state, awaits the
 request, then sets state again. Here that is two messages: 'Submitted'
 starts the request with a command, and 'Answered' arrives when it is done.
-What the form looks like in between is whatever the view makes of the model.
+What the form looks like in between is whatever the view makes of the state.
 -}
 module ReactComparison.Quiz
   ( quiz
@@ -20,19 +20,19 @@ import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (className, disabled, value)
 import Hastea.Html.Events (onInput, onSubmit)
-import Hastea.Sub qualified as Sub
 import Hastea.Time qualified as Time
+
+
+data Quiz = Quiz
+  { answer :: String
+  , status :: Status
+  , problem :: Maybe String
+  -- ^ What was wrong with the last answer.
+  }
 
 
 data Status = Typing | Submitting | Success
   deriving (Eq)
-
-
-data Model = Model
-  { answer :: String
-  , problem :: Maybe String
-  , status :: Status
-  }
 
 
 data Msg
@@ -41,50 +41,45 @@ data Msg
   | Answered (Either String ())
 
 
-quiz :: Component () Model Msg out
-quiz =
-  Component
-    { initial = \() -> Model{answer = "", problem = Nothing, status = Typing}
-    , update = \msg model -> case msg of
-        AnswerChanged newAnswer -> (model{answer = newAnswer}, [])
-        Submitted -> (model{status = Submitting}, [Run (submitForm model.answer)])
-        Answered (Right ()) -> (model{status = Success}, [])
-        Answered (Left message) -> (model{status = Typing, problem = Just message}, [])
-    , view = \() -> viewQuiz
-    , subscriptions = const Sub.none
-    }
+quiz :: Component () Quiz Msg out
+quiz = component initial update view
+ where
+  initial () = Quiz{answer = "", status = Typing, problem = Nothing}
+
+  update msg state = case msg of
+    AnswerChanged newAnswer -> (state{answer = newAnswer}, [])
+    Submitted -> (state{status = Submitting}, [Run (submitForm state.answer)])
+    Answered (Right ()) -> (state{status = Success}, [])
+    Answered (Left message) -> (state{status = Typing, problem = Just message}, [])
+
+  view () state
+    | state.status == Success = h1 [] [text "That's right!"]
+    | otherwise = viewForm state
 
 
 -- | Pretend it's hitting the network.
 submitForm :: String -> Cmd Msg
-submitForm given = Time.after 1500 (Answered result)
+submitForm answer = Time.after 1500 (Answered result)
  where
   result
-    | map toLower given == "lima" = Right ()
+    | map toLower answer == "lima" = Right ()
     | otherwise = Left "Good guess but a wrong answer. Try again!"
 
 
-viewQuiz :: Model -> Html Msg
-viewQuiz model
-  | model.status == Success = h1 [] [text "That's right!"]
-  | otherwise =
-      div
-        []
-        [ h2 [] [text "City quiz"]
-        , p [] [text "In which city is there a billboard that turns air into drinkable water?"]
-        , form
-            [onSubmit Submitted]
-            ( [ textarea
-                  [ value model.answer
-                  , onInput AnswerChanged
-                  , disabled (model.status == Submitting)
-                  ]
-                  []
-              , br []
-              , button
-                  [disabled (null model.answer || model.status == Submitting)]
-                  [text "Submit"]
-              ]
-                <> [p [className "Error"] [text message] | Just message <- [model.problem]]
-            )
-        ]
+viewForm :: Quiz -> Html Msg
+viewForm state =
+  div
+    []
+    [ h2 [] [text "City quiz"]
+    , p [] [text "In which city is there a billboard that turns air into drinkable water?"]
+    , form
+        [onSubmit Submitted]
+        ( [ textarea [value state.answer, onInput AnswerChanged, disabled submitting] []
+          , br []
+          , button [disabled (null state.answer || submitting)] [text "Submit"]
+          ]
+            <> [p [className "Error"] [text message] | Just message <- [state.problem]]
+        )
+    ]
+ where
+  submitting = state.status == Submitting

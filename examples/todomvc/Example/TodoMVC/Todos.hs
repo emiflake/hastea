@@ -1,174 +1,110 @@
+-- | The list of todos and what can be done with it. No views here.
 module Example.TodoMVC.Todos
-  ( add
-  , viewTodo
-  , viewTodos
-  , empty
-  , isEmpty
-  , count
-  , clearCompleted
-  , anyCompleted
-  , allCompleted
-  , toggleAll
-  , Todo
+  ( Todo (..)
+  , TodoId
   , Todos
   , Filter (..)
+
+    -- * Changing the list
+  , empty
+  , add
+  , toggle
+  , toggleAll
+  , clearCompleted
+
+    -- * Asking about the list
+  , visible
+  , isEmpty
+  , remaining
+  , anyCompleted
+  , allCompleted
   )
 where
 
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Hastea.Html
-import Hastea.Html.Attributes (checked, className, type_)
-import Hastea.Html.Events
-import Prelude hiding (div, span)
 
 
--- MODEL
-
-newtype TodoId
-  = TodoId Int
-  deriving (Show, Eq, Ord)
-
-
-data Todo
-  = Todo
+data Todo = Todo
   { label :: String
   , completed :: Bool
   }
-  deriving (Show)
 
 
+type TodoId = Int
+
+
+data Todos = Todos
+  { items :: Map TodoId Todo
+  , nextId :: TodoId
+  }
+
+
+-- | Which todos to show.
 data Filter
   = All
   | Active
   | Completed
-  deriving (Show, Eq)
+  deriving (Eq)
 
 
-todoToggle :: Todo -> Todo
-todoToggle todo =
-  todo{completed = not todo.completed}
+-- CHANGING THE LIST
 
-
-data Todos
-  = Todos
-  { items :: Map TodoId Todo
-  , counter :: Int
-  }
-  deriving (Show)
+empty :: Todos
+empty = Todos{items = Map.empty, nextId = 0}
 
 
 add :: String -> Todos -> Todos
 add newLabel todos =
-  let
-    newTodo =
-      Todo{label = newLabel, completed = False}
-    freshId =
-      TodoId todos.counter
-   in
-    todos
-      { items = Map.insert freshId newTodo todos.items
-      , counter = succ todos.counter
-      }
-
-
-toggleTodo :: TodoId -> Todos -> Todos
-toggleTodo todoId todos =
   todos
-    { items =
-        Map.adjust
-          todoToggle
-          todoId
-          todos.items
+    { items = Map.insert todos.nextId Todo{label = newLabel, completed = False} todos.items
+    , nextId = todos.nextId + 1
     }
 
 
-empty :: Todos
-empty =
-  Todos
-    { items = Map.empty
-    , counter = 0
-    }
+toggle :: TodoId -> Todos -> Todos
+toggle todoId todos =
+  todos{items = Map.adjust (\todo -> todo{completed = not todo.completed}) todoId todos.items}
 
 
-isEmpty :: Todos -> Bool
-isEmpty todos =
-  Map.null todos.items
-
-
-count :: Todos -> Int
-count todos =
-  Map.size (Map.filter (\todo -> not todo.completed) todos.items)
+-- | Complete every todo, or if they all are already, none.
+toggleAll :: Todos -> Todos
+toggleAll todos =
+  todos{items = fmap (\todo -> todo{completed = not allDone}) todos.items}
+ where
+  allDone = allCompleted todos
 
 
 clearCompleted :: Todos -> Todos
 clearCompleted todos =
-  todos
-    { items = Map.filter (\todo -> not todo.completed) todos.items
-    }
+  todos{items = Map.filter (\todo -> not todo.completed) todos.items}
+
+
+-- ASKING ABOUT THE LIST
+
+-- | The todos that a filter lets through, oldest first.
+visible :: Filter -> Todos -> [(TodoId, Todo)]
+visible which todos =
+  [(todoId, todo) | (todoId, todo) <- Map.toList todos.items, passes todo]
+ where
+  passes todo = case which of
+    All -> True
+    Active -> not todo.completed
+    Completed -> todo.completed
+
+
+isEmpty :: Todos -> Bool
+isEmpty todos = Map.null todos.items
+
+
+-- | How many todos are still to do.
+remaining :: Todos -> Int
+remaining todos = Map.size (Map.filter (\todo -> not todo.completed) todos.items)
 
 
 anyCompleted :: Todos -> Bool
-anyCompleted todos =
-  any (.completed) todos.items
+anyCompleted todos = any (.completed) todos.items
 
 
 allCompleted :: Todos -> Bool
-allCompleted todos =
-  all (.completed) todos.items
-
-
-toggleAll :: Todos -> Todos
-toggleAll todos =
-  let
-    setAll isCompleted =
-      fmap (\todo -> todo{completed = isCompleted})
-    newTodos =
-      if not $ allCompleted todos
-        then
-          setAll True todos.items
-        else
-          setAll False todos.items
-   in
-    todos
-      { items = newTodos
-      }
-
-
--- VIEW
-
-viewTodo :: msg -> Todo -> Html msg
-viewTodo toggle todo =
-  li
-    [if todo.completed then className "completed" else className ""]
-    [ div
-        [className "view"]
-        [ input
-            [ className "toggle"
-            , type_ "checkbox"
-            , checked todo.completed
-            , onClick toggle
-            ]
-        , label [] [text todo.label]
-        ]
-    ]
-
-
-shouldView :: Filter -> Todo -> Bool
-shouldView currentFilter todo =
-  case currentFilter of
-    Completed -> todo.completed
-    All -> True
-    Active -> not todo.completed
-
-
-viewTodos :: Filter -> ((Todos -> Todos) -> msg) -> Todos -> Html msg
-viewTodos currentFilter updateTodos todos =
-  ul
-    [className "todo-list"]
-    [ -- The key ties each item to its DOM node, whatever the filter shows.
-      keyed (show number) $
-        viewTodo (updateTodos $ \currentTodos -> toggleTodo todoId currentTodos) todo
-    | (todoId@(TodoId number), todo) <- Map.assocs todos.items
-    , shouldView currentFilter todo
-    ]
+allCompleted todos = all (.completed) todos.items

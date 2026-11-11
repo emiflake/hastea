@@ -7,13 +7,11 @@ anything for it:
 
 @
 counter :: Component () Int CounterMsg out
-counter =
-  Component
-    { initial = \\() -> 0
-    , update = \\Pressed count -> (count + 1, [])
-    , view = \\() count -> button [onClick Pressed] [text (show count)]
-    , subscriptions = const Sub.none
-    }
+counter = component initial update view
+ where
+  initial () = 0
+  update Pressed count = (count + 1, [])
+  view () count = button [onClick Pressed] [text (show count)]
 
 page :: Html msg
 page = div [] [use counter (), use counter ()] -- two counters, counting separately
@@ -36,6 +34,7 @@ outputs the messages of the surrounding view.
 -}
 module Hastea.Component
   ( Component (..)
+  , component
   , Effect (..)
   , use
   )
@@ -46,6 +45,7 @@ import Data.Typeable (Typeable)
 import Hastea.Component.Internal (Effect (..), Embedded (..), embed)
 import Hastea.Html (Html)
 import Hastea.Sub (Sub)
+import Hastea.Sub qualified as Sub
 
 
 {- | A component that is given @props@, keeps a @state@, changes it in
@@ -62,13 +62,29 @@ data Component props state msg out = Component
   }
 
 
+{- | A component from its three main parts, without subscriptions. To add
+those, use record syntax:
+
+@
+(component initial update view){subscriptions = subscriptions}
+@
+-}
+component ::
+  (props -> state) ->
+  (msg -> state -> (state, [Effect msg out])) ->
+  (props -> state -> Html msg) ->
+  Component props state msg out
+component initial update view =
+  Component{initial, update, view, subscriptions = const Sub.none}
+
+
 -- | Place a component in a view.
 use :: (Typeable state, Typeable msg) => Component props state msg out -> props -> Html out
-use component props =
+use definition props =
   embed
     Embedded
-      { initial = component.initial props
-      , view = component.view props
-      , update = component.update
-      , subscriptions = component.subscriptions
+      { initial = definition.initial props
+      , view = definition.view props
+      , update = definition.update
+      , subscriptions = definition.subscriptions
       }

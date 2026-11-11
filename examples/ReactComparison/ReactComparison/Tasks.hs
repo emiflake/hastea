@@ -20,7 +20,6 @@ import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (checked, placeholder, type_, value)
 import Hastea.Html.Events (onCheck, onClick, onInput)
-import Hastea.Sub qualified as Sub
 
 
 data Task = Task
@@ -30,8 +29,10 @@ data Task = Task
   }
 
 
-data Model = Model
-  { tasks :: [Task]
+-- THE LIST
+
+data Tasks = Tasks
+  { all :: [Task]
   , nextId :: Int
   }
 
@@ -43,42 +44,44 @@ data Msg
   | Deleted Int
 
 
-taskApp :: Component () Model Msg out
-taskApp =
-  Component
-    { initial = \() ->
-        Model
-          { tasks =
-              [ Task 0 "Visit Kafka Museum" True
-              , Task 1 "Watch a puppet show" False
-              , Task 2 "Lennon Wall pic" False
-              ]
-          , nextId = 3
-          }
-    , update = \msg model -> (reducer msg model, [])
-    , view = \() model ->
-        div
-          []
-          [ h1 [] [text "Prague itinerary"]
-          , Added <$> use addTask ()
-          , ul [] [keyed (show task.id) (li [] [use taskRow task]) | task <- model.tasks]
+taskApp :: Component () Tasks Msg out
+taskApp = component initial update view
+ where
+  initial () =
+    Tasks
+      { all =
+          [ Task 0 "Visit Kafka Museum" True
+          , Task 1 "Watch a puppet show" False
+          , Task 2 "Lennon Wall pic" False
           ]
-    , subscriptions = const Sub.none
-    }
-
-
-reducer :: Msg -> Model -> Model
-reducer msg model = case msg of
-  Added newText ->
-    model
-      { tasks = model.tasks <> [Task model.nextId newText False]
-      , nextId = model.nextId + 1
+      , nextId = 3
       }
-  Changed task ->
-    model{tasks = [if t.id == task.id then task else t | t <- model.tasks]}
-  Deleted deletedId ->
-    model{tasks = filter (\task -> task.id /= deletedId) model.tasks}
 
+  update msg tasks = (reducer msg tasks, [])
+
+  view () tasks =
+    div
+      []
+      [ h1 [] [text "Prague itinerary"]
+      , Added <$> use addTask ()
+      , ul [] [keyed (show task.id) (li [] [use taskRow task]) | task <- tasks.all]
+      ]
+
+
+reducer :: Msg -> Tasks -> Tasks
+reducer msg tasks = case msg of
+  Added newText ->
+    tasks
+      { all = tasks.all <> [Task tasks.nextId newText False]
+      , nextId = tasks.nextId + 1
+      }
+  Changed changed ->
+    tasks{all = [if task.id == changed.id then changed else task | task <- tasks.all]}
+  Deleted deletedId ->
+    tasks{all = [task | task <- tasks.all, task.id /= deletedId]}
+
+
+-- ADDING A TASK
 
 data AddTaskMsg
   = Typed String
@@ -87,21 +90,23 @@ data AddTaskMsg
 
 -- | Keeps the text being typed, and emits it when "Add" is pressed.
 addTask :: Component () String AddTaskMsg String
-addTask =
-  Component
-    { initial = \() -> ""
-    , update = \msg draft -> case msg of
-        Typed newDraft -> (newDraft, [])
-        AddPressed -> ("", [Emit draft])
-    , view = \() draft ->
-        div
-          []
-          [ input [placeholder "Add task", value draft, onInput Typed]
-          , button [onClick AddPressed] [text "Add"]
-          ]
-    , subscriptions = const Sub.none
-    }
+addTask = component initial update view
+ where
+  initial () = ""
 
+  update msg draft = case msg of
+    Typed newDraft -> (newDraft, [])
+    AddPressed -> ("", [Emit draft])
+
+  view () draft =
+    div
+      []
+      [ input [placeholder "Add task", value draft, onInput Typed]
+      , button [onClick AddPressed] [text "Add"]
+      ]
+
+
+-- ONE TASK
 
 data RowMsg
   = EditPressed
@@ -112,25 +117,25 @@ data RowMsg
 
 -- | Shows the task it is given, and keeps whether it is being edited.
 taskRow :: Component Task Bool RowMsg Msg
-taskRow =
-  Component
-    { initial = \_ -> False
-    , update = \msg isEditing -> case msg of
-        EditPressed -> (True, [])
-        SavePressed -> (False, [])
-        Edited task -> (isEditing, [Emit (Changed task)])
-        DeletePressed deletedId -> (isEditing, [Emit (Deleted deletedId)])
-    , view = \task isEditing ->
-        label
-          []
-          [ input [type_ "checkbox", checked task.done, onCheck (\isDone -> Edited task{done = isDone})]
-          , if isEditing
-              then input [value task.text, onInput (\newText -> Edited task{text = newText})]
-              else text task.text
-          , if isEditing
-              then button [onClick SavePressed] [text "Save"]
-              else button [onClick EditPressed] [text "Edit"]
-          , button [onClick (DeletePressed task.id)] [text "Delete"]
-          ]
-    , subscriptions = const Sub.none
-    }
+taskRow = component initial update view
+ where
+  initial _ = False
+
+  update msg isEditing = case msg of
+    EditPressed -> (True, [])
+    SavePressed -> (False, [])
+    Edited task -> (isEditing, [Emit (Changed task)])
+    DeletePressed taskId -> (isEditing, [Emit (Deleted taskId)])
+
+  view task isEditing =
+    label
+      []
+      [ input [type_ "checkbox", checked task.done, onCheck (\isDone -> Edited task{done = isDone})]
+      , if isEditing
+          then input [value task.text, onInput (\newText -> Edited task{text = newText})]
+          else text task.text
+      , if isEditing
+          then button [onClick SavePressed] [text "Save"]
+          else button [onClick EditPressed] [text "Edit"]
+      , button [onClick (DeletePressed task.id)] [text "Delete"]
+      ]

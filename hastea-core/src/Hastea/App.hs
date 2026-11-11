@@ -7,6 +7,7 @@ go.
 -}
 module Hastea.App
   ( runApp
+  , runView
 
     -- * Applications with more parts
   , App (..)
@@ -17,6 +18,7 @@ where
 
 import Control.Monad
 import Data.IORef
+import Data.Void (Void, absurd)
 
 import Hastea.Cmd
 import Hastea.Html
@@ -70,6 +72,16 @@ messages arrive in quick succession, only the latest model is rendered.
 -}
 runApp :: (msg -> model -> (model, Cmd msg)) -> model -> (model -> Html msg) -> IO ()
 runApp update initial view = run (app update initial view)
+
+
+{- | Show a view that has no model behind it, in the element with id
+@main-node@. This is all it takes when the state of the page lives in
+components ("Hastea.Component"), which look after themselves.
+-}
+runView :: Html Void -> IO ()
+runView view = do
+  root <- mount "main-node" absurd
+  render root view
 
 
 -- | Run an application.

@@ -11,13 +11,13 @@ where
 import Prelude hiding (div, span)
 
 import Data.Char (toLower)
-import Data.List (isInfixOf)
+import Data.Function (on)
+import Data.List (groupBy, isInfixOf)
 
 import Hastea.Component
 import Hastea.Html
 import Hastea.Html.Attributes (checked, colSpan, placeholder, styles, type_, value)
 import Hastea.Html.Events (onCheck, onInput)
-import Hastea.Sub qualified as Sub
 
 
 data Product = Product
@@ -39,8 +39,9 @@ products =
   ]
 
 
-data Model = Model
-  { filterText :: String
+-- | What the user is filtering by.
+data Filter = Filter
+  { text :: String
   , inStockOnly :: Bool
   }
 
@@ -51,82 +52,67 @@ data Msg
 
 
 -- | The products to show are props; what to filter them by is state.
-filterableProductTable :: Component [Product] Model Msg out
-filterableProductTable =
-  Component
-    { initial = \_ -> Model{filterText = "", inStockOnly = False}
-    , update = \msg model -> case msg of
-        FilterTextChanged newText -> (model{filterText = newText}, [])
-        InStockOnlyChanged only -> (model{inStockOnly = only}, [])
-    , view = \allProducts model ->
-        div
-          []
-          [ searchBar model
-          , productTable allProducts model
-          ]
-    , subscriptions = const Sub.none
-    }
+filterableProductTable :: Component [Product] Filter Msg out
+filterableProductTable = component initial update view
+ where
+  initial _ = Filter{text = "", inStockOnly = False}
+
+  update msg current = case msg of
+    FilterTextChanged newText -> (current{text = newText}, [])
+    InStockOnlyChanged only -> (current{inStockOnly = only}, [])
+
+  view allProducts current =
+    div
+      []
+      [ searchBar current
+      , productTable (filter (matches current) allProducts)
+      ]
 
 
-searchBar :: Model -> Html Msg
-searchBar model =
+matches :: Filter -> Product -> Bool
+matches current item =
+  map toLower current.text `isInfixOf` map toLower item.name
+    && (item.stocked || not current.inStockOnly)
+
+
+searchBar :: Filter -> Html Msg
+searchBar current =
   form
     []
-    [ input
-        [ type_ "text"
-        , value model.filterText
-        , placeholder "Search..."
-        , onInput FilterTextChanged
-        ]
+    [ input [type_ "text", value current.text, placeholder "Search...", onInput FilterTextChanged]
     , label
         []
-        [ input [type_ "checkbox", checked model.inStockOnly, onCheck InStockOnlyChanged]
+        [ input [type_ "checkbox", checked current.inStockOnly, onCheck InStockOnlyChanged]
         , text " Only show products in stock"
         ]
     ]
 
 
-productTable :: [Product] -> Model -> Html msg
-productTable allProducts model =
+-- | One group of rows for each category, in the order the products come in.
+productTable :: [Product] -> Html msg
+productTable items =
   table
     []
     [ thead [] [tr [] [th [] [text "Name"], th [] [text "Price"]]]
-    , tbody [] (rows Nothing visible)
+    , tbody [] (concatMap categoryRows (groupBy ((==) `on` (.category)) items))
     ]
  where
-  visible =
-    [ item
-    | item <- allProducts
-    , map toLower model.filterText `isInfixOf` map toLower item.name
-    , item.stocked || not model.inStockOnly
-    ]
-
-  -- A category row goes before the first item of each category.
-  rows _ [] = []
-  rows lastCategory (item : rest)
-    | Just item.category /= lastCategory =
-        keyed item.category (productCategoryRow item.category)
-          : productRows item rest
-    | otherwise = productRows item rest
-
-  productRows item rest =
-    keyed item.name (productRow item) : rows (Just item.category) rest
+  categoryRows group =
+    [keyed item.category (productCategoryRow item.category) | item <- take 1 group]
+      <> [keyed item.name (productRow item) | item <- group]
 
 
 productCategoryRow :: String -> Html msg
-productCategoryRow categoryName =
-  tr [] [th [colSpan 2] [text categoryName]]
+productCategoryRow category =
+  tr [] [th [colSpan 2] [text category]]
 
 
 productRow :: Product -> Html msg
 productRow item =
   tr
     []
-    [ td
-        []
-        [ if item.stocked
-            then text item.name
-            else span [styles [("color", "red")]] [text item.name]
-        ]
+    [ td [] [if item.stocked then text item.name else outOfStock item.name]
     , td [] [text item.price]
     ]
+ where
+  outOfStock name = span [styles [("color", "red")]] [text name]
