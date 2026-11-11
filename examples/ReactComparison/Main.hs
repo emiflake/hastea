@@ -8,8 +8,9 @@ module Main where
 
 import Hastea.App (runView)
 import Hastea.Component (use)
-import Hastea.Html
-import Hastea.Html.Attributes (className)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 
 import ReactComparison.Accordion (accordion)
 import ReactComparison.Bio (bioPage)
@@ -32,7 +33,7 @@ main = do
 
 page :: Html msg
 page =
-  main_
+  H.main_
     []
     [ -- The same component twice, each with its own state.
       example "useState" [use counter (), use counter ()]
@@ -50,8 +51,8 @@ page =
 
 -- | A titled box around one example.
 example :: String -> [Html msg] -> Html msg
-example name content =
-  article [className "example"] (h2 [className "example-title"] [text name] : content)
+example title content =
+  H.article [A.className "example"] (H.h2 [A.className "example-title"] [H.text title] : content)
 
 
 -- The wasm module is linked as a WASI reactor, so there is no implicit entry

@@ -15,8 +15,8 @@ module ReactComparison.Tasks
 where
 
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (checked, placeholder, type_, value)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onCheck, onClick, onInput)
 
 
@@ -58,10 +58,10 @@ taskApp = component initial update view
   update msg tasks = (reducer msg tasks, [])
 
   view () tasks =
-    fragment
-      [ h1 [] [text "Prague itinerary"]
+    H.fragment
+      [ H.h1 [] [H.text "Prague itinerary"]
       , Added <$> use addTask ()
-      , ul [] [keyed (show task.id) (li [] [use taskRow task]) | task <- tasks.all]
+      , H.ul [] [H.keyed (show task.id) (H.li [] [use taskRow task]) | task <- tasks.all]
       ]
 
 
@@ -96,9 +96,9 @@ addTask = component initial update view
     AddPressed -> ("", [Emit draft])
 
   view () draft =
-    fragment
-      [ input [placeholder "Add task", value draft, onInput Typed]
-      , button [onClick AddPressed] [text "Add"]
+    H.fragment
+      [ H.input [A.placeholder "Add task", A.value draft, onInput Typed]
+      , H.button [onClick AddPressed] [H.text "Add"]
       ]
 
 
@@ -124,14 +124,15 @@ taskRow = component initial update view
     DeletePressed taskId -> (isEditing, [Emit (Deleted taskId)])
 
   view task isEditing =
-    label
+    H.label
       []
-      [ input [type_ "checkbox", checked task.done, onCheck (\isDone -> Edited task{done = isDone})]
+      [ H.input
+          [A.type_ "checkbox", A.checked task.done, onCheck (\isDone -> Edited task{done = isDone})]
       , if isEditing
-          then input [value task.text, onInput (\newText -> Edited task{text = newText})]
-          else text task.text
+          then H.input [A.value task.text, onInput (\newText -> Edited task{text = newText})]
+          else H.text task.text
       , if isEditing
-          then button [onClick SavePressed] [text "Save"]
-          else button [onClick EditPressed] [text "Edit"]
-      , button [onClick (DeletePressed task.id)] [text "Delete"]
+          then H.button [onClick SavePressed] [H.text "Save"]
+          else H.button [onClick EditPressed] [H.text "Edit"]
+      , H.button [onClick (DeletePressed task.id)] [H.text "Delete"]
       ]

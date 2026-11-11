@@ -15,8 +15,9 @@ import Data.Char (toLower)
 
 import Hastea.Cmd (Cmd)
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (className, disabled, value)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onInput, onSubmit)
 import Hastea.Time qualified as Time
 
@@ -51,7 +52,7 @@ quiz = component initial update view
     Answered (Left message) -> (state{status = Typing, problem = Just message}, [])
 
   view () state
-    | state.status == Success = h1 [] [text "That's right!"]
+    | state.status == Success = H.h1 [] [H.text "That's right!"]
     | otherwise = viewForm state
 
 
@@ -66,16 +67,16 @@ submitForm answer = Time.after 1500 (Answered result)
 
 viewForm :: Quiz -> Html Msg
 viewForm state =
-  fragment
-    [ h2 [] [text "City quiz"]
-    , p [] [text "In which city is there a billboard that turns air into drinkable water?"]
-    , form
+  H.fragment
+    [ H.h2 [] [H.text "City quiz"]
+    , H.p [] [H.text "In which city is there a billboard that turns air into drinkable water?"]
+    , H.form
         [onSubmit Submitted]
-        ( [ textarea [value state.answer, onInput AnswerChanged, disabled submitting] []
-          , br []
-          , button [disabled (null state.answer || submitting)] [text "Submit"]
+        ( [ H.textarea [A.value state.answer, onInput AnswerChanged, A.disabled submitting] []
+          , H.br []
+          , H.button [A.disabled (null state.answer || submitting)] [H.text "Submit"]
           ]
-            <> [p [className "Error"] [text message] | Just message <- [state.problem]]
+            <> [H.p [A.className "Error"] [H.text message] | Just message <- [state.problem]]
         )
     ]
  where

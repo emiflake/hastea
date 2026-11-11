@@ -8,24 +8,12 @@ module Example.TodoMVC.TodoMVC
   )
 where
 
-import Prelude hiding (div, span)
-
 import Hastea.App (runApp)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
-import Hastea.Html
-import Hastea.Html.Attributes
-  ( checked
-  , classList
-  , className
-  , for
-  , href
-  , id_
-  , placeholder
-  , styles
-  , type_
-  , value
-  )
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onClick, onInput, onKeyDown)
 
 import Example.TodoMVC.Todos (Filter (..), Todo, TodoId, Todos)
@@ -83,10 +71,10 @@ step msg model = case msg of
 
 view :: Model -> Html Msg
 view model =
-  div
-    [className "todomvc-wrapper"]
-    [ section
-        [className "todoapp"]
+  H.div
+    [A.className "todomvc-wrapper"]
+    [ H.section
+        [A.className "todoapp"]
         ( [viewHeader model.entry, viewMain model]
             <> [viewFooter model | not (Todos.isEmpty model.todos)]
         )
@@ -96,13 +84,13 @@ view model =
 
 viewHeader :: String -> Html Msg
 viewHeader entry =
-  header
-    [className "header"]
-    [ h1 [] [text "Todos"]
-    , input
-        [ className "new-todo"
-        , placeholder "What needs to be done?"
-        , value entry
+  H.header
+    [A.className "header"]
+    [ H.h1 [] [H.text "Todos"]
+    , H.input
+        [ A.className "new-todo"
+        , A.placeholder "What needs to be done?"
+        , A.value entry
         , onInput EntryChanged
         , onKeyDown EntryKeyPressed
         ]
@@ -111,53 +99,53 @@ viewHeader entry =
 
 viewMain :: Model -> Html Msg
 viewMain model =
-  section
-    [className "main", styles [("display", "block")]]
-    [ input
-        [ id_ "toggle-all"
-        , className "toggle-all"
-        , type_ "checkbox"
-        , checked (Todos.allCompleted model.todos)
+  H.section
+    [A.className "main", A.styles [("display", "block")]]
+    [ H.input
+        [ A.id_ "toggle-all"
+        , A.className "toggle-all"
+        , A.type_ "checkbox"
+        , A.checked (Todos.allCompleted model.todos)
         , onClick AllToggled
         ]
-    , label [for "toggle-all"] []
+    , H.label [A.for "toggle-all"] []
     , -- Typing in the entry field changes neither the filter nor the todos,
       -- so the list is then skipped entirely.
-      lazy2 viewTodos model.filter model.todos
+      H.lazy2 viewTodos model.filter model.todos
     ]
 
 
 viewTodos :: Filter -> Todos -> Html Msg
 viewTodos current todos =
-  ul
-    [className "todo-list"]
+  H.ul
+    [A.className "todo-list"]
     [ -- The key ties each todo to its element, whatever the filter shows.
-      keyed (show todoId) (viewTodo todoId todo)
+      H.keyed (show todoId) (viewTodo todoId todo)
     | (todoId, todo) <- Todos.visible current todos
     ]
 
 
 viewTodo :: TodoId -> Todo -> Html Msg
 viewTodo todoId todo =
-  li
-    [classList [("completed", todo.completed)]]
-    [ div
-        [className "view"]
-        [ input
-            [ className "toggle"
-            , type_ "checkbox"
-            , checked todo.completed
+  H.li
+    [A.classList [("completed", todo.completed)]]
+    [ H.div
+        [A.className "view"]
+        [ H.input
+            [ A.className "toggle"
+            , A.type_ "checkbox"
+            , A.checked todo.completed
             , onClick (Toggled todoId)
             ]
-        , label [] [text todo.label]
+        , H.label [] [H.text todo.label]
         ]
     ]
 
 
 viewFooter :: Model -> Html Msg
 viewFooter model =
-  footer
-    [className "footer"]
+  H.footer
+    [A.className "footer"]
     ( [viewItemCount (Todos.remaining model.todos), viewFilters model.filter]
         <> [viewClearCompleted | Todos.anyCompleted model.todos]
     )
@@ -165,21 +153,23 @@ viewFooter model =
 
 viewItemCount :: Int -> Html msg
 viewItemCount count =
-  span [className "todo-count"] [text (show count <> (if count == 1 then " item left" else " items left"))]
+  H.span [A.className "todo-count"] [H.text (show count <> " " <> items <> " left")]
+ where
+  items = if count == 1 then "item" else "items"
 
 
 viewFilters :: Filter -> Html Msg
 viewFilters current =
-  ul [className "filters"] [viewFilter current choice | choice <- [All, Active, Completed]]
+  H.ul [A.className "filters"] [viewFilter current choice | choice <- [All, Active, Completed]]
 
 
 viewFilter :: Filter -> Filter -> Html Msg
 viewFilter current choice =
-  li
+  H.li
     []
-    [ a
-        [classList [("selected", choice == current)], onClick (FilterSelected choice)]
-        [text (filterName choice)]
+    [ H.a
+        [A.classList [("selected", choice == current)], onClick (FilterSelected choice)]
+        [H.text (filterName choice)]
     ]
 
 
@@ -191,21 +181,21 @@ filterName Completed = "Completed"
 
 viewClearCompleted :: Html Msg
 viewClearCompleted =
-  button [className "clear-completed", onClick CompletedCleared] [text "Clear completed"]
+  H.button [A.className "clear-completed", onClick CompletedCleared] [H.text "Clear completed"]
 
 
 viewInfo :: Html msg
 viewInfo =
-  footer
-    [className "info"]
-    [ p [] [text "Double-click to edit a todo"]
-    , p
+  H.footer
+    [A.className "info"]
+    [ H.p [] [H.text "Double-click to edit a todo"]
+    , H.p
         []
-        [ text "Created with "
-        , a [href "https://github.com/emiflake/hastea"] [text "Hastea"]
-        , text " and "
-        , a
-            [href "https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html"]
-            [text "GHC's WebAssembly backend"]
+        [ H.text "Created with "
+        , H.a [A.href "https://github.com/emiflake/hastea"] [H.text "Hastea"]
+        , H.text " and "
+        , H.a
+            [A.href "https://ghc.gitlab.haskell.org/ghc/doc/users_guide/wasm.html"]
+            [H.text "GHC's WebAssembly backend"]
         ]
     ]

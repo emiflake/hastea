@@ -13,8 +13,9 @@ where
 import Debug.Trace (trace)
 
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (value)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onInput)
 
 
@@ -39,12 +40,12 @@ greetingForm = component initial update view
     AddressChanged newAddress -> (fields{address = newAddress}, [])
 
   view () fields =
-    fragment
-      [ label [] [text "Name: ", input [value fields.name, onInput NameChanged]]
-      , label [] [text "Address: ", input [value fields.address, onInput AddressChanged]]
+    H.fragment
+      [ H.label [] [H.text "Name: ", H.input [A.value fields.name, onInput NameChanged]]
+      , H.label [] [H.text "Address: ", H.input [A.value fields.address, onInput AddressChanged]]
       , -- Typing an address leaves the name untouched, so the greeting is
         -- neither computed nor compared with the page.
-        lazy greeting fields.name
+        H.lazy greeting fields.name
       ]
 
 
@@ -54,4 +55,4 @@ browser console), to show that it is not when only the address changes.
 greeting :: String -> Html msg
 greeting name =
   trace "Greeting was rendered" $
-    h3 [] [text (if null name then "Hello!" else "Hello, " <> name <> "!")]
+    H.h3 [] [H.text (if null name then "Hello!" else "Hello, " <> name <> "!")]

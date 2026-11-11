@@ -34,7 +34,7 @@ Items are grouped by how much they hurt a real application. The performance item
 * Developer experience
   - [ ] *Devtools* to inspect components, state and messages.
   - [ ] *Hot reload.* Every change is a slow recompile and a full page reload that loses state.
-  - [ ] *Syntax friction.* Element names clash with ordinary variable names, ~use counter ()~ needs the unit, and ~App~ and ~Component~ share field names.
+  - [-] *Syntax friction.* Element names no longer clash with ordinary names, now that the examples import them qualified (~H.div~). Still there: ~use counter ()~ needs the unit, and ~App~ and ~Component~ share field names.
   - [ ] *Attaching to server-rendered markup.* ~renderHtml~ produces markup, but the runtime cannot take it over.
   - [ ] *A testing helper for users.* The stand-in root that drives components without a page lives only in our own test suite.
   - [ ] *Documentation.* Two examples and a README; no tutorial, no published API documentation.

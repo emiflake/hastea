@@ -11,10 +11,10 @@ counter = component initial update view
  where
   initial () = 0
   update Pressed count = (count + 1, [])
-  view () count = button [onClick Pressed] [text (show count)]
+  view () count = H.button [onClick Pressed] [H.text (show count)]
 
 page :: Html msg
-page = div [] [use counter (), use counter ()] -- two counters, counting separately
+page = H.div [] [use counter (), use counter ()] -- two counters, counting separately
 @
 
 == Where the state lives

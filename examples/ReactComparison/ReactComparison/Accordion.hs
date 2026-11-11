@@ -9,11 +9,10 @@ module ReactComparison.Accordion
   )
 where
 
-import Prelude hiding (span)
-
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (className, lang)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onClick)
 
 
@@ -29,8 +28,8 @@ accordion = component initial update view
   update (Shown index) _ = (index, [])
 
   view () activeIndex =
-    fragment
-      [ h2 [] [text "Almaty, Kazakhstan"]
+    H.fragment
+      [ H.h2 [] [H.text "Almaty, Kazakhstan"]
       , panel "About" (activeIndex == 0) (Shown 0) about
       , panel "Etymology" (activeIndex == 1) (Shown 1) etymology
       ]
@@ -40,19 +39,19 @@ accordion = component initial update view
 prop becomes the message to send, so the panel works for any message type.
 -}
 panel :: String -> Bool -> msg -> [Html msg] -> Html msg
-panel heading isActive onShow children =
-  section
-    [className "panel"]
-    [ h3 [] [text heading]
+panel title isActive onShow children =
+  H.section
+    [A.className "panel"]
+    [ H.h3 [] [H.text title]
     , if isActive
-        then p [] children
-        else button [onClick onShow] [text "Show"]
+        then H.p [] children
+        else H.button [onClick onShow] [H.text "Show"]
     ]
 
 
 about :: [Html msg]
 about =
-  [ text
+  [ H.text
       "With a population of about 2 million, Almaty is Kazakhstan's largest city. \
       \From 1929 to 1997, it was its capital city."
   ]
@@ -60,12 +59,12 @@ about =
 
 etymology :: [Html msg]
 etymology =
-  [ text "The name comes from "
-  , span [lang "kk-KZ"] [text "алма"]
-  , text
+  [ H.text "The name comes from "
+  , H.span [A.lang "kk-KZ"] [H.text "алма"]
+  , H.text
       ", the Kazakh word for \"apple\" and is often translated as \"full of apples\". \
       \In fact, the region surrounding Almaty is thought to be the ancestral home of \
       \the apple, and the wild "
-  , i [lang "la"] [text "Malus sieversii"]
-  , text " is considered a likely candidate for the ancestor of the modern domestic apple."
+  , H.i [A.lang "la"] [H.text "Malus sieversii"]
+  , H.text " is considered a likely candidate for the ancestor of the modern domestic apple."
   ]

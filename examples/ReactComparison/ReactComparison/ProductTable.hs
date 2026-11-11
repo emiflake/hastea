@@ -8,15 +8,14 @@ module ReactComparison.ProductTable
   )
 where
 
-import Prelude hiding (div, span)
-
 import Data.Char (toLower)
 import Data.Function (on)
 import Data.List (groupBy, isInfixOf)
 
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (checked, colSpan, placeholder, styles, type_, value)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onCheck, onInput)
 
 
@@ -62,7 +61,7 @@ filterableProductTable = component initial update view
     InStockOnlyChanged only -> (current{inStockOnly = only}, [])
 
   view allProducts current =
-    div
+    H.div
       []
       [ searchBar current
       , productTable (filter (matches current) allProducts)
@@ -77,13 +76,14 @@ matches current item =
 
 searchBar :: Filter -> Html Msg
 searchBar current =
-  form
+  H.form
     []
-    [ input [type_ "text", value current.text, placeholder "Search...", onInput FilterTextChanged]
-    , label
+    [ H.input
+        [A.type_ "text", A.value current.text, A.placeholder "Search...", onInput FilterTextChanged]
+    , H.label
         []
-        [ input [type_ "checkbox", checked current.inStockOnly, onCheck InStockOnlyChanged]
-        , text " Only show products in stock"
+        [ H.input [A.type_ "checkbox", A.checked current.inStockOnly, onCheck InStockOnlyChanged]
+        , H.text " Only show products in stock"
         ]
     ]
 
@@ -91,28 +91,28 @@ searchBar current =
 -- | One group of rows for each category, in the order the products come in.
 productTable :: [Product] -> Html msg
 productTable items =
-  table
+  H.table
     []
-    [ thead [] [tr [] [th [] [text "Name"], th [] [text "Price"]]]
-    , tbody [] (concatMap categoryRows (groupBy ((==) `on` (.category)) items))
+    [ H.thead [] [H.tr [] [H.th [] [H.text "Name"], H.th [] [H.text "Price"]]]
+    , H.tbody [] (concatMap categoryRows (groupBy ((==) `on` (.category)) items))
     ]
  where
   categoryRows group =
-    [keyed item.category (productCategoryRow item.category) | item <- take 1 group]
-      <> [keyed item.name (productRow item) | item <- group]
+    [H.keyed item.category (productCategoryRow item.category) | item <- take 1 group]
+      <> [H.keyed item.name (productRow item) | item <- group]
 
 
 productCategoryRow :: String -> Html msg
 productCategoryRow category =
-  tr [] [th [colSpan 2] [text category]]
+  H.tr [] [H.th [A.colSpan 2] [H.text category]]
 
 
 productRow :: Product -> Html msg
 productRow item =
-  tr
+  H.tr
     []
-    [ td [] [if item.stocked then text item.name else outOfStock item.name]
-    , td [] [text item.price]
+    [ H.td [] [if item.stocked then H.text item.name else outOfStock item.name]
+    , H.td [] [H.text item.price]
     ]
  where
-  outOfStock name = span [styles [("color", "red")]] [text name]
+  outOfStock name = H.span [A.styles [("color", "red")]] [H.text name]

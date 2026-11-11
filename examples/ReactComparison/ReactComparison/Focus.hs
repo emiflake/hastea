@@ -12,8 +12,8 @@ where
 
 import Hastea.Component
 import Hastea.Dom qualified as Dom
-import Hastea.Html
-import Hastea.Html.Attributes (id_)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onClick)
 
 
@@ -29,9 +29,9 @@ focusForm = component initial update view
   update FocusPressed () = ((), [Run (Dom.focus inputId)])
 
   view () () =
-    fragment
-      [ input [id_ inputId]
-      , button [onClick FocusPressed] [text "Focus the input"]
+    H.fragment
+      [ H.input [A.id_ inputId]
+      , H.button [onClick FocusPressed] [H.text "Focus the input"]
       ]
 
   inputId = "focus-example-input"

@@ -14,7 +14,7 @@ where
 import Numeric (showFFloat)
 
 import Hastea.Component
-import Hastea.Html
+import Hastea.Html qualified as H
 import Hastea.Html.Events (onClick)
 import Hastea.Sub qualified as Sub
 import Hastea.Time qualified as Time
@@ -41,21 +41,21 @@ stopwatch = (component initial update view){subscriptions}
   initial () = Stopwatch{startTime = 0, now = 0, running = False}
 
   update msg watch = case msg of
-    -- Reading the clock is an effect: ask for the time and wait for the answer.
+    -- Reading the time is an effect: ask for the time and wait for the answer.
     StartPressed -> (watch, [Run (Time.now Started)])
-    Started clock -> (Stopwatch{startTime = clock, now = clock, running = True}, [])
+    Started time -> (Stopwatch{startTime = time, now = time, running = True}, [])
     StopPressed -> (watch{running = False}, [])
-    Ticked clock -> (watch{now = clock}, [])
+    Ticked time -> (watch{now = time}, [])
 
   subscriptions watch
     | watch.running = Time.every 10 Ticked
     | otherwise = Sub.none
 
   view () watch =
-    fragment
-      [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
-      , button [onClick StartPressed] [text "Start"]
-      , button [onClick StopPressed] [text "Stop"]
+    H.fragment
+      [ H.h1 [] [H.text ("Time passed: " <> seconds (watch.now - watch.startTime))]
+      , H.button [onClick StartPressed] [H.text "Start"]
+      , H.button [onClick StopPressed] [H.text "Stop"]
       ]
 
 

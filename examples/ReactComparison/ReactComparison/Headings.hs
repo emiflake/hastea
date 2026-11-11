@@ -11,9 +11,9 @@ module ReactComparison.Headings
   )
 where
 
-import Hastea.Html hiding (section)
-import Hastea.Html qualified as Html
-import Hastea.Html.Attributes (className)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 
 
 view :: Html msg
@@ -41,17 +41,17 @@ type Leveled msg = Int -> Html msg
 -- | Puts its children one level deeper than itself.
 section :: [Leveled msg] -> Leveled msg
 section children level =
-  Html.section [className "section"] [child (level + 1) | child <- children]
+  H.section [A.className "section"] [child (level + 1) | child <- children]
 
 
 -- | A heading of the size that fits its level.
 heading :: String -> Leveled msg
-heading content level = tag [] [text content]
+heading title level = tag [] [H.text title]
  where
   tag = case level of
-    1 -> h1
-    2 -> h2
-    3 -> h3
-    4 -> h4
-    5 -> h5
-    _ -> h6
+    1 -> H.h1
+    2 -> H.h2
+    3 -> H.h3
+    4 -> H.h4
+    5 -> H.h5
+    _ -> H.h6

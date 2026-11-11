@@ -15,8 +15,8 @@ where
 
 import Hastea.Cmd (Cmd)
 import Hastea.Component
-import Hastea.Html
-import Hastea.Html.Attributes (value)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onChange)
 import Hastea.Http qualified as Http
 
@@ -48,12 +48,12 @@ bioPage = (component initial update view){onMount}
       | otherwise -> (page, [])
 
   view () page =
-    fragment
-      [ select
-          [value page.person, onChange PersonChanged]
-          [option [value name] [text name] | name <- ["Alice", "Bob", "Taylor"]]
-      , hr []
-      , p [] [i [] [text (maybe "Loading..." id page.bio)]]
+    H.fragment
+      [ H.select
+          [A.value page.person, onChange PersonChanged]
+          [H.option [A.value name] [H.text name] | name <- ["Alice", "Bob", "Taylor"]]
+      , H.hr []
+      , H.p [] [H.i [] [H.text (maybe "Loading..." id page.bio)]]
       ]
 
   describe problem = "Could not fetch the bio: " <> show problem

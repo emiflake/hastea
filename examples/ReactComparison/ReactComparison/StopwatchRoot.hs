@@ -17,7 +17,7 @@ import Data.IORef
 import Numeric (showFFloat)
 
 import Hastea.Async (setTimeout)
-import Hastea.Html
+import Hastea.Html qualified as H
 import Hastea.Html.Events (onClick)
 import Hastea.Root (mount, render)
 
@@ -47,8 +47,8 @@ run = do
         readIORef state >>= render root . view
 
       handleStart = do
-        clock <- dateNow
-        setState (const Stopwatch{startTime = clock, now = clock})
+        time <- dateNow
+        setState (const Stopwatch{startTime = time, now = time})
         modifyIORef' timer (+ 1)
         readIORef timer >>= tick
 
@@ -58,15 +58,15 @@ run = do
       tick started = do
         current <- readIORef timer
         when (current == started) $ do
-          clock <- dateNow
-          setState (\watch -> watch{now = clock})
+          time <- dateNow
+          setState (\watch -> watch{now = time})
           setTimeout (tick started) 10
 
       view watch =
-        fragment
-          [ h1 [] [text ("Time passed: " <> seconds (watch.now - watch.startTime))]
-          , button [onClick handleStart] [text "Start"]
-          , button [onClick handleStop] [text "Stop"]
+        H.fragment
+          [ H.h1 [] [H.text ("Time passed: " <> seconds (watch.now - watch.startTime))]
+          , H.button [onClick handleStart] [H.text "Start"]
+          , H.button [onClick handleStop] [H.text "Stop"]
           ]
 
   setState id

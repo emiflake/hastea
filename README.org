@@ -22,18 +22,17 @@
   ~hastea-html~ has a function for every element of the HTML standard, plus their attributes and events. It is a sublibrary of the ~hastea~ package, which re-exports the modules of its sublibraries, so depending on ~hastea~ is enough. (To use it alone, for example to render views on a server, depend on ~hastea:hastea-html~.)
 
   #+BEGIN_SRC haskell
-  import Prelude hiding (div)
-
-  import Hastea.Html
-  import Hastea.Html.Attributes (className, disabled, placeholder, value)
+  import Hastea.Html (Html)
+  import Hastea.Html qualified as H
+  import Hastea.Html.Attributes qualified as A
   import Hastea.Html.Events (onClick, onInput)
 
   view :: Model -> Html Msg
   view model =
-    div
-      [className "signup"]
-      [ input [placeholder "Your name", value model.name, onInput NameChanged]
-      , button [onClick Submit, disabled (null model.name)] [text "Sign up"]
+    H.div
+      [A.className "signup"]
+      [ H.input [A.placeholder "Your name", A.value model.name, onInput NameChanged]
+      , H.button [onClick Submit, A.disabled (null model.name)] [H.text "Sign up"]
       ]
   #+END_SRC
 
@@ -46,7 +45,7 @@
 
   ~fragment~ puts several nodes where one is expected, without an element around them.
 
-  Some names exist both as an element and as an attribute (~title~, ~style~, ~form~, ~label~, ...), so import ~Hastea.Html.Attributes~ qualified or with an import list.
+  Import elements and attributes qualified, as ~H~ and ~A~. There is an element for every tag, including ~a~, ~i~, ~div~, ~title~ and ~time~, and several names are both an element and an attribute; qualified, none of them get in the way of your own names or of the ~Prelude~. Event handlers do not clash with anything and read well unqualified.
 
 * How rendering works
   The design follows React, and leans on purity where Haskell allows more.
@@ -71,10 +70,10 @@
    where
     initial () = 0
     update Pressed count = (count + 1, [])
-    view () count = button [onClick Pressed] [text (show count)]
+    view () count = H.button [onClick Pressed] [H.text (show count)]
 
   page :: Html msg
-  page = div [] [use counter (), use counter ()] -- two counters, counting separately
+  page = H.div [] [use counter (), use counter ()] -- two counters, counting separately
   #+END_SRC
 
   The first type parameter is what the component is given by its surroundings (its props) and the last what it reports back: ~update~ returns ~[Emit value]~, and the user turns that into one of its own messages with ~<$>~. ~update~ can also ask for a command with ~[Run command]~. A component can have subscriptions, and can ask for effects when it appears or goes away: ~(component initial update view){subscriptions, onMount, onUnmount}~. In a list, ~keyed~ makes the state follow the item.

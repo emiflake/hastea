@@ -4,12 +4,16 @@ Every element of the HTML standard has a function named after its tag.
 Ordinary elements take a list of attributes and a list of children:
 
 @
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
+
 view :: Html msg
 view =
-  div
-    [className "greeting"]
-    [ h1 [] [text "Hello!"]
-    , img [src "wave.png", alt "A waving hand"]
+  H.div
+    [A.className "greeting"]
+    [ H.h1 [] [H.text "Hello!"]
+    , H.img [A.src "wave.png", A.alt "A waving hand"]
     ]
 @
 
@@ -17,9 +21,14 @@ Void elements such as 'img', 'input' and 'br' cannot have children, so they
 only take attributes.
 
 Attributes live in "Hastea.Html.Attributes" and event handlers in
-"Hastea.Html.Events". 'div', 'span' and 'head' clash with the "Prelude";
-either hide those or import this module qualified. Names that would be
-awkward to hide get a trailing underscore: 'main_', 'map_' and 'data_'.
+"Hastea.Html.Events".
+
+This module is meant to be imported qualified, as above. There is an
+element for every tag, so unqualified, names such as 'a', 'i', 'title' and
+'time' would not be free for your own variables, and 'div', 'span' and
+'head' would clash with the "Prelude". Three names have a trailing
+underscore because they are keywords or too common to give up even so:
+'main_', 'map_' and 'data_'.
 
 Use 'fmap' to change the type of message a tree produces.
 -}

@@ -6,13 +6,12 @@ measures both. See the README next to this file.
 -}
 module Main where
 
-import Prelude hiding (div, span)
-
 import Hastea.App (runApp)
 import Hastea.Cmd (Cmd)
 import Hastea.Cmd qualified as Cmd
-import Hastea.Html
-import Hastea.Html.Attributes (classList, className, id_, type_)
+import Hastea.Html (Html)
+import Hastea.Html qualified as H
+import Hastea.Html.Attributes qualified as A
 import Hastea.Html.Events (onClick)
 import Hastea.Svg qualified as Svg
 import Hastea.Svg.Attributes qualified as Svg
@@ -42,7 +41,8 @@ initial = Model{rows = [], selected = 0, nextId = 1, seed = 1}
 
 -- | Make a number of new rows, and the model that knows they were made.
 makeRows :: Int -> Model -> ([Row], Model)
-makeRows count model = (new, model{nextId = model.nextId + count, seed = last (model.seed : map fst labelled)})
+makeRows count model =
+  (new, model{nextId = model.nextId + count, seed = last (model.seed : map fst labelled)})
  where
   labelled = take count (drop 1 (iterate (\(current, _) -> makeLabel current) (model.seed, "")))
   new = zipWith (\rowId (_, rowLabel) -> Row{id = rowId, label = rowLabel}) [model.nextId ..] labelled
@@ -116,12 +116,12 @@ swap first second items
 
 view :: Model -> Html Msg
 view model =
-  div
-    [className "container"]
-    [ div
-        [className "jumbotron"]
-        [ h1 [] [logo, text " Hastea"]
-        , div
+  H.div
+    [A.className "container"]
+    [ H.div
+        [A.className "jumbotron"]
+        [ H.h1 [] [logo, H.text " Hastea"]
+        , H.div
             []
             [ action "run" "Create 1,000 rows" (Created 1000)
             , action "runlots" "Create 10,000 rows" (Created 10000)
@@ -131,12 +131,12 @@ view model =
             , action "swaprows" "Swap Rows" Swapped
             ]
         ]
-    , table
-        [className "table"]
-        [ tbody
-            [id_ "tbody"]
+    , H.table
+        [A.className "table"]
+        [ H.tbody
+            [A.id_ "tbody"]
             [ -- A row that did not change, and whose selection did not, is skipped.
-              keyed (show row.id) (lazy2 viewRow (row.id == model.selected) row)
+              H.keyed (show row.id) (H.lazy2 viewRow (row.id == model.selected) row)
             | row <- model.rows
             ]
         ]
@@ -144,17 +144,17 @@ view model =
 
 
 action :: String -> String -> Msg -> Html Msg
-action buttonId name msg =
-  button [type_ "button", id_ buttonId, onClick msg] [text name]
+action buttonId caption msg =
+  H.button [A.type_ "button", A.id_ buttonId, onClick msg] [H.text caption]
 
 
 viewRow :: Bool -> Row -> Html Msg
 viewRow isSelected row =
-  tr
-    [classList [("danger", isSelected)]]
-    [ td [className "id"] [text (show row.id)]
-    , td [] [a [className "lbl", onClick (Selected row.id)] [text row.label]]
-    , td [] [a [className "remove", onClick (Removed row.id)] [text "x"]]
+  H.tr
+    [A.classList [("danger", isSelected)]]
+    [ H.td [A.className "id"] [H.text (show row.id)]
+    , H.td [] [H.a [A.className "lbl", onClick (Selected row.id)] [H.text row.label]]
+    , H.td [] [H.a [A.className "remove", onClick (Removed row.id)] [H.text "x"]]
     ]
 
 
